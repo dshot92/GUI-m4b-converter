@@ -6,6 +6,14 @@ A GUI application for converting audiobooks to M4B format with chapter support a
 
 - Convert audio files to M4B format
 - Edit chapter titles using regex patterns
+  - Use `{n}` in your pattern to insert an auto-incrementing number
+  - Control padding by adding zeros: `{nn}` or `{nnn}` for 2 or 3 digit padding
+    - Example: "Chapter {nn}" will generate "Chapter 01", "Chapter 02", etc.
+    - Example: "Chapter {nnn}" will generate "Chapter 001", "Chapter 002", etc.
+  - Customize increment using `{n+X}` where X is the starting number
+    - Example: "Chapter {n+5}" will generate "Chapter 5", "Chapter 6", etc.
+  - Combine padding and custom start: `{nnn+10}` generates "010", "011", etc.
+  - The increment increases by 1 for each chapter by default
 - Add metadata (title, author, narrator, series, etc.)
 - Add cover images
 - Customize audio settings (codec, bitrate, sample rate)
