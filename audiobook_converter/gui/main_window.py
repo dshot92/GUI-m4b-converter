@@ -34,9 +34,10 @@ from PyQt6.QtWidgets import (
     QSplitter,
     QFrame,
     QMessageBox,
+    QInputDialog,
 )
 from PyQt6.QtCore import Qt, pyqtSignal, QRectF
-from PyQt6.QtGui import QPixmap, QColor, QTextDocument, QIcon
+from PyQt6.QtGui import QPixmap, QColor, QTextDocument, QIcon, QImageReader
 
 from audiobook_converter.core.converter import ConversionThread
 from audiobook_converter.utils.logging import setup_logging
@@ -699,11 +700,22 @@ class AudiobookConverterGUI(QMainWindow):
             )
             self.cover_image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             self.cover_image_label.setText("No image selected")
+            self.cover_image_label.mousePressEvent = self.show_image_popout
             cover_layout.addWidget(self.cover_image_label)
         except Exception as e:
             logging.error(f"Error setting up cover image label: {str(e)}")
 
-        # Right side: Buttons in vertical layout
+        # Right side: Buttons and image info in vertical layout
+        info_layout = QVBoxLayout()
+        info_layout.setSpacing(8)
+        info_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+
+        # Image info label
+        self.image_info_label = QLabel()
+        self.image_info_label.setWordWrap(True)
+        info_layout.addWidget(self.image_info_label)
+
+        # Buttons
         buttons_layout = QVBoxLayout()
         buttons_layout.setSpacing(8)
         buttons_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
@@ -720,7 +732,9 @@ class AudiobookConverterGUI(QMainWindow):
 
         buttons_layout.addWidget(select_button)
         buttons_layout.addWidget(clear_button)
-        cover_layout.addLayout(buttons_layout)
+        info_layout.addLayout(buttons_layout)
+
+        cover_layout.addLayout(info_layout)
 
         scroll_layout.addWidget(cover_widget)
         scroll_layout.addStretch()
@@ -844,50 +858,56 @@ class AudiobookConverterGUI(QMainWindow):
             valid_books.sort(
                 key=lambda x: x.get("date", "9999")
             )  # Default to far future if no date
-            metadata = valid_books[0]  # Take the earliest edition
 
-            # Update metadata fields with proper error handling
-            if not self.metadata_title.text():
-                self.metadata_title.setText(metadata.get("title", ""))
-            if not self.metadata_author.text():
-                self.metadata_author.setText(metadata.get("artist", ""))
-            if not self.metadata_narrator.text():
-                self.metadata_narrator.setText(metadata.get("album_artist", ""))
-            if not self.metadata_series.text():
-                self.metadata_series.setText(metadata.get("album", ""))
-            if not self.metadata_series_index.text():
-                self.metadata_series_index.setText(metadata.get("track", ""))
-            if not self.metadata_genre.text():
-                self.metadata_genre.setText(metadata.get("genre", ""))
-            if not self.metadata_year.text():
-                self.metadata_year.setText(metadata.get("date", ""))
-            if not self.metadata_description.toPlainText():
-                self.metadata_description.setText(metadata.get("description", ""))
+            # Iterate through valid books to find a cover image
+            for metadata in valid_books:
+                # Update metadata fields with proper error handling
+                if not self.metadata_title.text():
+                    self.metadata_title.setText(metadata.get("title", ""))
+                if not self.metadata_author.text():
+                    self.metadata_author.setText(metadata.get("artist", ""))
+                if not self.metadata_narrator.text():
+                    self.metadata_narrator.setText(metadata.get("album_artist", ""))
+                if not self.metadata_series.text():
+                    self.metadata_series.setText(metadata.get("album", ""))
+                if not self.metadata_series_index.text():
+                    self.metadata_series_index.setText(metadata.get("track", ""))
+                if not self.metadata_genre.text():
+                    self.metadata_genre.setText(metadata.get("genre", ""))
+                if not self.metadata_year.text():
+                    self.metadata_year.setText(metadata.get("date", ""))
+                if not self.metadata_description.toPlainText():
+                    self.metadata_description.setText(metadata.get("description", ""))
 
-            # Handle cover image if available
-            if "cover_url" in metadata and metadata["cover_url"]:
-                try:
-                    # Download the cover image
-                    response = requests.get(metadata["cover_url"])
-                    response.raise_for_status()
+                # Handle cover image if available
+                if "cover_url" in metadata and metadata["cover_url"]:
+                    try:
+                        # Download the cover image
+                        response = requests.get(metadata["cover_url"])
+                        response.raise_for_status()
 
-                    # Create a temporary file for the image with proper extension
-                    url_path = urlparse(metadata["cover_url"]).path
-                    ext = (
-                        os.path.splitext(url_path)[1] or ".jpg"
-                    )  # Default to .jpg if no extension
+                        # Create a temporary file for the image with proper extension
+                        url_path = urlparse(metadata["cover_url"]).path
+                        ext = (
+                            os.path.splitext(url_path)[1] or ".jpg"
+                        )  # Default to .jpg if no extension
 
-                    with tempfile.NamedTemporaryFile(
-                        delete=False, suffix=ext
-                    ) as tmp_file:
-                        tmp_file.write(response.content)
-                        self.cover_image_path = tmp_file.name
+                        with tempfile.NamedTemporaryFile(
+                            delete=False, suffix=ext
+                        ) as tmp_file:
+                            tmp_file.write(response.content)
+                            self.cover_image_path = tmp_file.name
 
-                    self.update_cover_preview()
-                    logging.info("Cover image downloaded successfully")
-                except Exception as e:
-                    logging.error(f"Error downloading cover image: {str(e)}")
-                    self.clear_cover_image()
+                        self.update_cover_preview()
+                        logging.info("Cover image downloaded successfully")
+                        break  # Exit the loop if a cover image is found
+
+                    except Exception as e:
+                        logging.error(f"Error downloading cover image: {str(e)}")
+                        self.clear_cover_image()
+
+            if not self.cover_image_path:
+                logging.warning("No cover image found")
 
         except Exception as e:
             logging.error(f"Error fetching book metadata: {str(e)}")
@@ -896,19 +916,73 @@ class AudiobookConverterGUI(QMainWindow):
             )
 
     def select_cover_image(self):
-        file_name, _ = QFileDialog.getOpenFileName(
-            self,
-            "Select Cover Image",
-            "",
-            "Image Files (*.png *.jpg *.jpeg);;All Files (*.*)",
-        )
-        if file_name:
-            try:
-                rel_path = os.path.relpath(file_name)
-                self.cover_image_path = rel_path
-            except ValueError:
-                self.cover_image_path = file_name
-            self.update_cover_preview()
+        # Create a menu with options
+        menu = QMenu(self)
+        local_action = menu.addAction("Select Local File")
+        url_action = menu.addAction("Enter URL")
+
+        # Show menu at the button's position
+        action = menu.exec(self.sender().mapToGlobal(self.sender().rect().bottomLeft()))
+
+        if action == local_action:
+            # Handle local file selection
+            file_name, _ = QFileDialog.getOpenFileName(
+                self,
+                "Select Cover Image",
+                "",
+                "Image Files (*.png *.jpg *.jpeg);;All Files (*.*)",
+            )
+            if file_name:
+                try:
+                    rel_path = os.path.relpath(file_name)
+                    self.cover_image_path = rel_path
+                    self.update_cover_preview()
+                except ValueError:
+                    self.cover_image_path = file_name
+                    self.update_cover_preview()
+
+        elif action == url_action:
+            # Handle URL input
+            url, ok = QInputDialog.getText(
+                self,
+                "Enter Image URL",
+                "Please enter the URL of the image:",
+                QLineEdit.EchoMode.Normal,
+            )
+            if ok and url:
+                try:
+                    # Download the image
+                    response = requests.get(url)
+                    response.raise_for_status()
+
+                    # Get file extension from URL or default to .jpg
+                    url_path = urlparse(url).path
+                    ext = os.path.splitext(url_path)[1]
+                    if not ext:
+                        # Try to determine format from content type
+                        content_type = response.headers.get("content-type", "")
+                        if "jpeg" in content_type or "jpg" in content_type:
+                            ext = ".jpg"
+                        elif "png" in content_type:
+                            ext = ".png"
+                        else:
+                            ext = ".jpg"  # Default to jpg
+
+                    # Save to temporary file
+                    with tempfile.NamedTemporaryFile(
+                        delete=False, suffix=ext
+                    ) as tmp_file:
+                        tmp_file.write(response.content)
+                        self.cover_image_path = tmp_file.name
+
+                    self.update_cover_preview()
+                    logging.info("Cover image downloaded successfully")
+
+                except Exception as e:
+                    logging.error(f"Error downloading image: {str(e)}")
+                    QMessageBox.warning(
+                        self, "Error", f"Failed to download image: {str(e)}"
+                    )
 
     def clear_cover_image(self):
         self.cover_image_path = None
@@ -917,6 +991,7 @@ class AudiobookConverterGUI(QMainWindow):
 
     def update_cover_preview(self):
         if not self.cover_image_path:
+            self.image_info_label.setText("")
             return
 
         pixmap = QPixmap(self.cover_image_path)
@@ -926,6 +1001,23 @@ class AudiobookConverterGUI(QMainWindow):
             Qt.TransformationMode.SmoothTransformation,
         )
         self.cover_image_label.setPixmap(scaled_pixmap)
+
+        # Get image dimensions
+        width = pixmap.width()
+        height = pixmap.height()
+
+        # Get file size in MB
+        file_size_mb = os.path.getsize(self.cover_image_path) / (1024 * 1024)
+
+        # Get image type
+        image_type = QImageReader(self.cover_image_path).format().data().decode()
+
+        # Update image info label
+        self.image_info_label.setText(
+            f"Dimensions: {width}x{height} pixels\n"
+            f"Size: {file_size_mb:.2f} MB\n"
+            f"Type: {image_type}"
+        )
 
     def get_metadata(self):
         metadata = {
@@ -1417,3 +1509,29 @@ class AudiobookConverterGUI(QMainWindow):
                     subprocess.Popen(["xdg-open", output_dir])
             except Exception as e:
                 logging.error(f"Error opening output directory: {str(e)}")
+
+    def show_image_popout(self, event):
+        if self.cover_image_path:
+            # Create a new window for the popout
+            popout_window = QMainWindow(self)
+            popout_window.setWindowTitle("Cover Image")
+            popout_window.setMinimumSize(600, 600)
+
+            # Create a label to display the image
+            popout_label = QLabel(popout_window)
+            popout_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+            # Load and scale the image
+            pixmap = QPixmap(self.cover_image_path)
+            scaled_pixmap = pixmap.scaled(
+                popout_window.size(),
+                Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation,
+            )
+            popout_label.setPixmap(scaled_pixmap)
+
+            # Set the label as the central widget
+            popout_window.setCentralWidget(popout_label)
+
+            # Show the popout window
+            popout_window.show()
