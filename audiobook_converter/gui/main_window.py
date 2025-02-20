@@ -1,9 +1,7 @@
-#!/usr/bin/env python3
-
-import sys
 import os
+import re
+import logging
 from PyQt6.QtWidgets import (
-    QApplication,
     QMainWindow,
     QWidget,
     QVBoxLayout,
@@ -20,49 +18,12 @@ from PyQt6.QtWidgets import (
     QComboBox,
     QCheckBox,
 )
-from PyQt6.QtCore import Qt, QThread, pyqtSignal, QSize
-from PyQt6.QtGui import QPixmap, QImage
-import logging
-import re
-from generate_m4b_file import main as generate_m4b, get_mp3_title, process_audio_files
-import shutil
+from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtGui import QPixmap
 
-
-class LogHandler(logging.Handler):
-    def __init__(self, signal):
-        super().__init__()
-        self.signal = signal
-
-    def emit(self, record):
-        msg = self.format(record)
-        self.signal.emit(msg)
-
-
-class ConversionThread(QThread):
-    finished = pyqtSignal()
-    error = pyqtSignal(str)
-
-    def __init__(self, input_dir, output_file, metadata=None, settings=None):
-        super().__init__()
-        self.input_dir = input_dir
-        self.output_file = output_file
-        self.metadata = metadata
-        self.settings = settings
-
-    def run(self):
-        try:
-            sys.argv = [
-                "generate_m4b_file.py",
-                "-i",
-                self.input_dir,
-                "-o",
-                self.output_file,
-                "-v",
-            ]
-            generate_m4b(metadata=self.metadata, settings=self.settings)
-            self.finished.emit()
-        except Exception as e:
-            self.error.emit(str(e))
+from audiobook_converter.core.converter import ConversionThread
+from audiobook_converter.utils.logging import setup_logging
+from audiobook_converter.core.m4b_generator import get_mp3_title, process_audio_files
 
 
 class AudiobookConverterGUI(QMainWindow):
@@ -73,6 +34,8 @@ class AudiobookConverterGUI(QMainWindow):
         self.setWindowTitle("Audiobook Converter")
         self.setMinimumSize(800, 600)
         self.chapter_files = []
+        self.cover_image_path = None
+        self.conversion_thread = None
 
         # Create main widget and layout
         main_widget = QWidget()
@@ -100,9 +63,8 @@ class AudiobookConverterGUI(QMainWindow):
         layout.addWidget(self.log_output)
 
         # Set up logging
-        self.setup_logging()
-
-        self.conversion_thread = None
+        setup_logging(self.log_signal)
+        self.log_signal.connect(self.update_log)
 
     def create_main_tab(self):
         main_tab = QWidget()
@@ -233,9 +195,6 @@ class AudiobookConverterGUI(QMainWindow):
 
         self.tabs.addTab(metadata_tab, "Metadata")
 
-        # Initialize cover image path
-        self.cover_image_path = None
-
     def create_settings_tab(self):
         settings_tab = QWidget()
         layout = QVBoxLayout(settings_tab)
@@ -274,7 +233,6 @@ class AudiobookConverterGUI(QMainWindow):
             "Image Files (*.png *.jpg *.jpeg);;All Files (*.*)",
         )
         if file_name:
-            # Convert to relative path for display if possible
             try:
                 rel_path = os.path.relpath(file_name)
                 self.cover_image_path = rel_path
@@ -302,16 +260,15 @@ class AudiobookConverterGUI(QMainWindow):
     def get_metadata(self):
         metadata = {
             "title": self.metadata_title.text(),
-            "artist": self.metadata_author.text(),  # artist is author in ffmpeg
-            "album_artist": self.metadata_narrator.text(),  # using album_artist for narrator
-            "album": self.metadata_series.text(),  # using album for series
+            "artist": self.metadata_author.text(),
+            "album_artist": self.metadata_narrator.text(),
+            "album": self.metadata_series.text(),
             "track": self.metadata_series_index.text(),
             "genre": self.metadata_genre.text(),
             "date": self.metadata_year.text(),
             "description": self.metadata_description.toPlainText(),
         }
 
-        # Add cover image if selected
         if self.cover_image_path:
             metadata["cover_path"] = self.cover_image_path
 
@@ -325,27 +282,16 @@ class AudiobookConverterGUI(QMainWindow):
             "force_conversion": self.force_conversion.isChecked(),
         }
 
-    def setup_logging(self):
-        self.log_signal.connect(self.update_log)
-        handler = LogHandler(self.log_signal)
-        handler.setFormatter(
-            logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
-        )
-        logging.getLogger().addHandler(handler)
-        logging.getLogger().setLevel(logging.INFO)
-
     def update_log(self, message):
         self.log_output.append(message)
 
     def select_input_directory(self):
         directory = QFileDialog.getExistingDirectory(self, "Select Input Directory")
         if directory:
-            # Convert to relative path if possible
             try:
                 rel_path = os.path.relpath(directory)
                 self.input_path.setText(rel_path)
             except ValueError:
-                # If relative path conversion fails, use absolute path
                 self.input_path.setText(directory)
 
     def select_output_file(self):
@@ -355,12 +301,10 @@ class AudiobookConverterGUI(QMainWindow):
         if file_name:
             if not file_name.lower().endswith(".m4b"):
                 file_name += ".m4b"
-            # Convert to relative path if possible
             try:
                 rel_path = os.path.relpath(file_name)
                 self.output_path.setText(rel_path)
             except ValueError:
-                # If relative path conversion fails, use absolute path
                 self.output_path.setText(file_name)
 
     def start_conversion(self):
@@ -371,7 +315,6 @@ class AudiobookConverterGUI(QMainWindow):
             logging.error("Please select both input directory and output file")
             return
 
-        # Convert relative paths to absolute for actual operations
         input_dir = os.path.abspath(input_dir)
         output_file = os.path.abspath(output_file)
 
@@ -383,14 +326,10 @@ class AudiobookConverterGUI(QMainWindow):
         self.progress_bar.setVisible(True)
         self.progress_bar.setRange(0, 0)
 
-        # Get metadata from the metadata tab
         metadata = self.get_metadata()
-
-        # Handle cover image path if it exists
         if metadata.get("cover_path"):
             metadata["cover_path"] = os.path.abspath(metadata["cover_path"])
 
-        # Get conversion settings
         settings = self.get_conversion_settings()
 
         self.conversion_thread = ConversionThread(
@@ -415,7 +354,6 @@ class AudiobookConverterGUI(QMainWindow):
         if not input_dir:
             return
 
-        # Convert to absolute path for operations
         abs_input_dir = os.path.abspath(input_dir)
         if not os.path.isdir(abs_input_dir):
             return
@@ -437,14 +375,13 @@ class AudiobookConverterGUI(QMainWindow):
     def update_chapter_preview(self):
         regex_pattern = self.regex_input.text()
         if not regex_pattern:
-            # If no regex pattern, show original titles
             self.preview_titles.clear()
             for i in range(self.original_titles.count()):
                 self.preview_titles.addItem(self.original_titles.item(i).text())
             return
 
         try:
-            re.compile(regex_pattern)  # Validate regex pattern
+            re.compile(regex_pattern)
             self.preview_titles.clear()
 
             for i in range(self.original_titles.count()):
@@ -459,14 +396,6 @@ class AudiobookConverterGUI(QMainWindow):
                 except Exception as e:
                     self.preview_titles.addItem(f"Error: {str(e)}")
         except re.error:
-            # Invalid regex pattern
             self.preview_titles.clear()
             for i in range(self.original_titles.count()):
                 self.preview_titles.addItem("Invalid regex pattern")
-
-
-if __name__ == "__main__":
-    app = QApplication(sys.argv)
-    window = AudiobookConverterGUI()
-    window.show()
-    sys.exit(app.exec())
