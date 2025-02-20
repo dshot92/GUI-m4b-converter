@@ -1,9 +1,8 @@
 import os
 import logging
 import subprocess
-from typing import List, Dict, Optional, Tuple
-import json
-import tempfile
+from typing import List, Dict, Optional
+
 from pathlib import Path
 from mutagen.mp4 import MP4, MP4Cover
 

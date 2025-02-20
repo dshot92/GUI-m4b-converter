@@ -1289,7 +1289,148 @@ class AudiobookConverterGUI(QMainWindow):
         self.patterns_list.remove_pattern(item)
         self.update_chapter_preview()
 
+    def _apply_single_pattern(
+        self, title: str, pattern_text: str, replacement_text: str, global_counter: int
+    ) -> tuple[str, str]:
+        """Apply a single regex pattern to a title and generate rich text preview.
+
+        Args:
+            title: The title to process
+            pattern_text: The regex pattern to match
+            replacement_text: The replacement text (may contain {n} placeholders)
+            global_counter: Current chapter counter
+
+        Returns:
+            Tuple of (processed_title, rich_text_preview)
+        """
+        try:
+            pattern = re.compile(pattern_text)
+            matches = list(pattern.finditer(title))
+            if not matches:
+                return title, ""
+
+            # First process the actual title replacement to get the new title
+            def replace_with_counter(m):
+                return self._process_replacement_text(replacement_text, global_counter)
+
+            if re.search(r"\{n+(?:\+\d+)?\}", replacement_text):
+                processed_title = pattern.sub(replace_with_counter, title)
+            else:
+                processed_title = pattern.sub(replacement_text, title)
+
+            # Then generate rich text preview showing the changes
+            rich_text = ""
+            last_end = 0
+
+            for match in matches:
+                # Add text before match
+                rich_text += title[last_end : match.start()]
+
+                if replacement_text:
+                    actual_replacement = self._process_replacement_text(
+                        replacement_text, global_counter
+                    )
+                    rich_text += f'<span style="background-color: #E6FFE6; color: #28a745;">{actual_replacement}</span>'
+                else:
+                    # Show match in red if no replacement
+                    match_text = title[match.start() : match.end()]
+                    rich_text += f'<span style="background-color: #FFE6E6; color: #FF0000;">{match_text}</span>'
+
+                last_end = match.end()
+
+            # Add remaining text
+            rich_text += title[last_end:]
+
+            return processed_title, rich_text
+
+        except (re.error, Exception) as e:
+            logging.error(f"Error applying pattern: {str(e)}")
+            return title, ""
+
+    def _process_replacement_text(
+        self, replacement_text: str, global_counter: int
+    ) -> str:
+        """Process replacement text, handling {n} patterns.
+
+        Args:
+            replacement_text: The replacement pattern
+            global_counter: Current chapter counter
+
+        Returns:
+            Processed replacement text with {n} patterns replaced
+        """
+        try:
+            n_pattern = re.compile(r"\{n+(?:\+\d+)?\}")
+            actual_replacement = replacement_text
+
+            for n_match in n_pattern.finditer(replacement_text):
+                n_pattern_text = n_match.group(0)[1:-1]  # Remove { and }
+                formatted_num = self.format_number(global_counter - 1, n_pattern_text)
+                actual_replacement = actual_replacement.replace(
+                    n_match.group(0), formatted_num
+                )
+
+            return actual_replacement
+        except Exception as e:
+            logging.error(f"Error processing replacement pattern: {str(e)}")
+            return replacement_text
+
+    def _process_single_title(
+        self, original_title: str, patterns: list[tuple[str, str]], global_counter: int
+    ) -> tuple[QListWidgetItem, int]:
+        """Process a single title with all regex patterns in sequence.
+
+        Args:
+            original_title: Original chapter title
+            patterns: List of (pattern, replacement) tuples
+            global_counter: Current chapter counter
+
+        Returns:
+            Tuple of (QListWidgetItem, updated_counter)
+        """
+        try:
+            current_title = original_title
+            item = QListWidgetItem()
+            preview_segments = []  # Store rich text segments for each pattern
+
+            # Apply patterns in sequence
+            for pattern_text, replacement_text in patterns:
+                if not pattern_text:
+                    continue
+
+                # Apply pattern and get both the new title and rich text preview
+                new_title, rich_text = self._apply_single_pattern(
+                    current_title,
+                    pattern_text,
+                    replacement_text,
+                    global_counter,
+                )
+
+                # Store rich text preview if pattern matched
+                if rich_text:
+                    preview_segments.append(rich_text)
+
+                # Update current title for next pattern in sequence
+                current_title = new_title
+
+            # Set the final text and rich text preview
+            if preview_segments:
+                # Show the last preview that had changes
+                item.setText(preview_segments[-1])
+            else:
+                item.setText(current_title)
+
+            if current_title != original_title:
+                self.edited_titles[current_title] = original_title
+
+            return item, global_counter + 1
+
+        except Exception as e:
+            logging.error(f"Error processing title: {str(e)}")
+            return QListWidgetItem(original_title), global_counter + 1
+
     def update_chapter_preview(self):
+        """Update the chapter preview list with processed titles."""
         if not hasattr(self, "original_titles"):
             self.original_titles = []
 
@@ -1303,141 +1444,16 @@ class AudiobookConverterGUI(QMainWindow):
             # If no patterns or all patterns are empty, show original titles
             if not patterns or all(not pattern[0] for pattern in patterns):
                 for title in self.original_titles:
-                    item = QListWidgetItem(title)
-                    self.preview_titles.addItem(item)
+                    self.preview_titles.addItem(QListWidgetItem(title))
                 return
 
-            # Global counter for each file
+            # Process each title with all patterns
             global_counter = 1
-
-            for i, original_title in enumerate(self.original_titles):
-                try:
-                    current_title = original_title
-                    item = QListWidgetItem()
-                    rich_text = ""
-                    last_end = 0
-
-                    # Apply each pattern in sequence
-                    for pattern_text, replacement_text in patterns:
-                        if not pattern_text:  # Skip empty patterns
-                            continue
-                        try:
-                            pattern = re.compile(pattern_text)
-                            matches = list(pattern.finditer(current_title))
-
-                            if matches:
-                                # Build rich text with highlighting
-                                rich_text = ""
-                                last_end = 0
-
-                                for match in matches:
-                                    # Add text before match
-                                    rich_text += current_title[last_end : match.start()]
-
-                                    if replacement_text:
-                                        try:
-                                            # Find all {n} patterns in replacement text
-                                            n_pattern = re.compile(r"\{n+(?:\+\d+)?\}")
-                                            actual_replacement = replacement_text
-
-                                            for n_match in n_pattern.finditer(
-                                                replacement_text
-                                            ):
-                                                try:
-                                                    n_pattern_text = n_match.group(0)[
-                                                        1:-1
-                                                    ]  # Remove { and }
-                                                    formatted_num = self.format_number(
-                                                        global_counter - 1,
-                                                        n_pattern_text,
-                                                    )
-                                                    actual_replacement = (
-                                                        actual_replacement.replace(
-                                                            n_match.group(0),
-                                                            formatted_num,
-                                                        )
-                                                    )
-                                                except Exception as e:
-                                                    logging.error(
-                                                        f"Error formatting number: {str(e)}"
-                                                    )
-                                                    continue
-
-                                            # Add the replacement with background color and text color
-                                            rich_text += f'<span style="background-color: #E6FFE6; color: #28a745;">{actual_replacement}</span>'
-                                        except Exception as e:
-                                            logging.error(
-                                                f"Error processing replacement pattern: {str(e)}"
-                                            )
-                                            rich_text += current_title[
-                                                match.start() : match.end()
-                                            ]
-                                    else:
-                                        # Show match in red if no replacement
-                                        match_text = current_title[
-                                            match.start() : match.end()
-                                        ]
-                                        rich_text += f'<span style="background-color: #FFE6E6; color: #FF0000;">{match_text}</span>'
-                                    last_end = match.end()
-
-                                # Add remaining text
-                                rich_text += current_title[last_end:]
-
-                                # Update current title for next pattern
-                                def replace_with_counter(m):
-                                    nonlocal global_counter
-                                    # Find all {n} patterns in replacement text
-                                    n_pattern = re.compile(r"\{n+(?:\+\d+)?\}")
-                                    result = replacement_text
-                                    for n_match in n_pattern.finditer(replacement_text):
-                                        n_pattern_text = n_match.group(0)[
-                                            1:-1
-                                        ]  # Remove { and }
-                                        formatted_num = self.format_number(
-                                            global_counter - 1, n_pattern_text
-                                        )
-                                        result = result.replace(
-                                            n_match.group(0), formatted_num
-                                        )
-                                    return result
-
-                                try:
-                                    current_title = pattern.sub(
-                                        (
-                                            replace_with_counter
-                                            if re.search(
-                                                r"\{n+(?:\+\d+)?\}", replacement_text
-                                            )
-                                            else replacement_text
-                                        ),
-                                        current_title,
-                                    )
-                                except Exception as e:
-                                    logging.error(f"Error replacing pattern: {str(e)}")
-                                    continue
-
-                        except re.error as e:
-                            logging.error(f"Invalid regex pattern: {str(e)}")
-                            continue
-                        except Exception as e:
-                            logging.error(f"Error applying pattern: {str(e)}")
-                            continue
-
-                    # Set the final text
-                    if rich_text:
-                        item.setText(rich_text)
-                    else:
-                        item.setText(current_title)
-
-                    if current_title != original_title:
-                        self.edited_titles[current_title] = original_title
-
-                    self.preview_titles.addItem(item)
-                    global_counter += 1
-
-                except Exception as e:
-                    logging.error(f"Error processing title: {str(e)}")
-                    self.preview_titles.addItem(QListWidgetItem(original_title))
+            for original_title in self.original_titles:
+                item, global_counter = self._process_single_title(
+                    original_title, patterns, global_counter
+                )
+                self.preview_titles.addItem(item)
 
         except Exception as e:
             logging.error(f"Error updating chapter preview: {str(e)}")

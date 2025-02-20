@@ -1,8 +1,6 @@
 import requests
 import logging
 from typing import Dict, Optional
-from PIL import Image
-from io import BytesIO
 
 
 def search_google_books(query: str, multiple: bool = False) -> Optional[Dict]:
@@ -168,20 +166,12 @@ def get_book_cover(isbn):
             ):
                 google_image_links = google_item["volumeInfo"]["imageLinks"]
                 # Prioritize the largest image size
-                if "extraLarge" in google_image_links:
-                    google_cover_url = google_image_links["extraLarge"]
-                elif "large" in google_image_links:
-                    google_cover_url = google_image_links["large"]
-                elif "thumbnail" in google_image_links:
-                    google_cover_url = google_image_links["thumbnail"]
-                else:
-                    logging.warning(f"No suitable image size found for ISBN: {isbn}")
-                    google_cover_url = None
-
-                if google_cover_url:
-                    google_cover_response = requests.get(google_cover_url)
-                    if google_cover_response.status_code == 200:
-                        return google_cover_response.content
+                for size in ["extraLarge", "large", "thumbnail"]:
+                    if size in google_image_links:
+                        google_cover_url = google_image_links[size]
+                        google_cover_response = requests.get(google_cover_url)
+                        if google_cover_response.status_code == 200:
+                            return google_cover_response.content
 
     # If Google Books API fails, try Open Library API
     open_library_url = f"https://covers.openlibrary.org/b/isbn/{isbn}-L.jpg"
@@ -189,20 +179,6 @@ def get_book_cover(isbn):
 
     if open_library_response.status_code == 200:
         return open_library_response.content
-
-    # If both APIs fail, try Goodreads API
-    goodreads_url = (
-        f"https://www.goodreads.com/book/isbn/{isbn}?key=YOUR_GOODREADS_API_KEY"
-    )
-    goodreads_response = requests.get(goodreads_url)
-
-    if goodreads_response.status_code == 200:
-        goodreads_data = goodreads_response.json()
-        if "book" in goodreads_data and "image_url" in goodreads_data["book"]:
-            goodreads_cover_url = goodreads_data["book"]["image_url"]
-            goodreads_cover_response = requests.get(goodreads_cover_url)
-            if goodreads_cover_response.status_code == 200:
-                return goodreads_cover_response.content
 
     # If all APIs fail, log a warning and return None
     logging.warning(f"Failed to fetch book cover for ISBN: {isbn}")
