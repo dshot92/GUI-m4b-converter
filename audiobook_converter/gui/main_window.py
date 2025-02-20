@@ -771,13 +771,27 @@ class AudiobookConverterGUI(QMainWindow):
 
         # Bitrate selection
         self.bitrate_combo = QComboBox()
-        self.bitrate_combo.addItems(["64k", "96k", "128k", "192k", "256k"])
-        self.bitrate_combo.setCurrentText("128k")
+        self.bitrate_combo.addItems(
+            [
+                "Auto",
+                "16k",
+                "32k",
+                "64k",
+                "96k",
+                "128k",
+                "192k",
+                "256k",
+                "320k",
+            ]
+        )
+        self.bitrate_combo.setCurrentText("Auto")
         form_layout.addRow("Bitrate:", self.bitrate_combo)
 
         # Sample rate selection
         self.sample_rate_combo = QComboBox()
-        self.sample_rate_combo.addItems(["Auto", "44100", "48000", "22050"])
+        self.sample_rate_combo.addItems(
+            ["Auto", "22050", "44100", "48000", "96000", "192000"]
+        )
         form_layout.addRow("Sample Rate:", self.sample_rate_combo)
 
         # Force conversion checkbox

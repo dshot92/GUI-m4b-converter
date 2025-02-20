@@ -249,7 +249,8 @@ def generate_m4b(
                 cmd.extend(["-c:a", "aac"])
                 # Bitrate
                 bitrate = settings.get("bitrate", "128k")
-                cmd.extend(["-b:a", bitrate])
+                if bitrate != "Auto":
+                    cmd.extend(["-b:a", bitrate])
                 # Sample rate
                 sample_rate = settings.get("sample_rate")
                 if sample_rate and sample_rate != "Auto":
