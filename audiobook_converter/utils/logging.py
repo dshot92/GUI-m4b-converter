@@ -14,6 +14,10 @@ class LogHandler(logging.Handler):
 
 def setup_logging(log_signal: pyqtSignal):
     handler = LogHandler(log_signal)
-    handler.setFormatter(logging.Formatter("%(asctime)s - %(levelname)s - %(message)s"))
+    handler.setFormatter(
+        logging.Formatter(
+            "%(asctime)s - %(levelname)s - %(message)s", datefmt="%H:%M:%S"
+        )
+    )
     logging.getLogger().addHandler(handler)
     logging.getLogger().setLevel(logging.INFO)
