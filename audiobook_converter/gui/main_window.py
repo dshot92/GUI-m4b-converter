@@ -447,43 +447,71 @@ class AudiobookConverterGUI(QMainWindow):
 
     def create_main_tab(self):
         main_tab = QWidget()
-        layout = QVBoxLayout(main_tab)
+        main_layout = QVBoxLayout(main_tab)
+        main_layout.setContentsMargins(8, 8, 8, 8)
+        main_layout.setSpacing(12)
 
-        # Input directory selection
-        input_layout = QHBoxLayout()
+        # Form layout for inputs
+        form_widget = QWidget()
+        form_layout = QFormLayout(form_widget)
+        form_layout.setContentsMargins(0, 0, 0, 0)
+        form_layout.setSpacing(8)
+        form_layout.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
+        form_layout.setFieldGrowthPolicy(
+            QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow
+        )
+
+        # Input directory row
+        input_widget = QWidget()
+        input_layout = QHBoxLayout(input_widget)
+        input_layout.setContentsMargins(0, 0, 0, 0)
+        input_layout.setSpacing(8)
+
         self.input_path = QLineEdit()
         self.input_path.setPlaceholderText("Input Directory")
         self.input_path.textChanged.connect(self.update_chapter_list)
         self.input_path.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.input_path.customContextMenuRequested.connect(self.show_input_context_menu)
+
         input_button = QPushButton("Browse")
         input_button.clicked.connect(self.select_input_directory)
-        input_layout.addWidget(QLabel("Input Directory:"))
+        input_button.setFixedWidth(100)
+
         input_layout.addWidget(self.input_path)
         input_layout.addWidget(input_button)
-        layout.addLayout(input_layout)
 
-        # Output file selection
-        output_layout = QHBoxLayout()
+        # Output file row
+        output_widget = QWidget()
+        output_layout = QHBoxLayout(output_widget)
+        output_layout.setContentsMargins(0, 0, 0, 0)
+        output_layout.setSpacing(8)
+
         self.output_path = QLineEdit()
         self.output_path.setPlaceholderText("Output M4B File")
         self.output_path.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.output_path.customContextMenuRequested.connect(
             self.show_output_context_menu
         )
+
         output_button = QPushButton("Browse")
         output_button.clicked.connect(self.select_output_file)
-        output_layout.addWidget(QLabel("Output File:"))
+        output_button.setFixedWidth(100)
+
         output_layout.addWidget(self.output_path)
         output_layout.addWidget(output_button)
-        layout.addLayout(output_layout)
+
+        # Add rows to form layout
+        form_layout.addRow("Input Directory:", input_widget)
+        form_layout.addRow("Output File:", output_widget)
+
+        main_layout.addWidget(form_widget)
 
         # Convert button
         self.convert_button = QPushButton("Convert to M4B")
         self.convert_button.clicked.connect(self.start_conversion)
-        layout.addWidget(self.convert_button)
+        main_layout.addWidget(self.convert_button)
 
-        layout.addStretch()
+        main_layout.addStretch()
         self.tabs.addTab(main_tab, "Input/Output")
 
     def create_chapters_tab(self):
@@ -566,25 +594,6 @@ class AudiobookConverterGUI(QMainWindow):
         scroll_layout.setContentsMargins(0, 0, 0, 0)
         scroll_layout.setSpacing(16)
 
-        # Quick Match section with improved styling
-        quick_match_group = QWidget()
-        quick_match_layout = QHBoxLayout(quick_match_group)
-        quick_match_layout.setContentsMargins(0, 0, 0, 12)
-
-        quick_match_button = QPushButton("Search Book Metadata")
-        quick_match_button.clicked.connect(self.fetch_book_metadata)
-        quick_match_layout.addStretch()
-        quick_match_layout.addWidget(quick_match_button)
-        quick_match_layout.addStretch()
-
-        scroll_layout.addWidget(quick_match_group)
-
-        # Separator line
-        line = QFrame()
-        line.setFrameShape(QFrame.Shape.HLine)
-        line.setFrameShadow(QFrame.Shadow.Sunken)
-        scroll_layout.addWidget(line)
-
         # Form layout for metadata fields
         form_widget = QWidget()
         fields_layout = QFormLayout(form_widget)
@@ -634,43 +643,48 @@ class AudiobookConverterGUI(QMainWindow):
         except Exception as e:
             logging.error(f"Error setting placeholders: {str(e)}")
 
+        # Create title row with search button
+        title_layout = QHBoxLayout()
+        title_layout.setContentsMargins(0, 0, 0, 0)
+        title_layout.addWidget(self.metadata_title)
+        quick_match_button = QPushButton("Search")
+        quick_match_button.setFixedWidth(100)
+        quick_match_button.clicked.connect(self.fetch_book_metadata)
+        title_layout.addWidget(quick_match_button)
+
         # Add fields with labels
         try:
-            fields_layout.addRow("Title:", self.metadata_title)
+            title_widget = QWidget()
+            title_widget.setLayout(title_layout)
+            fields_layout.addRow("Title:", title_widget)
             fields_layout.addRow("Author:", self.metadata_author)
             fields_layout.addRow("Narrator:", self.metadata_narrator)
             fields_layout.addRow("Series:", self.metadata_series)
             fields_layout.addRow("Series Index:", self.metadata_series_index)
             fields_layout.addRow("Genre:", self.metadata_genre)
             fields_layout.addRow("Year:", self.metadata_year)
+
+            # Add description field to form layout
+            self.metadata_description = QTextEdit()
+            self.metadata_description.setMinimumHeight(100)
+            self.metadata_description.setPlaceholderText("Book description")
+            self.metadata_description.setSizePolicy(
+                QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding
+            )
+            fields_layout.addRow("Description:", self.metadata_description)
+
         except Exception as e:
             logging.error(f"Error adding form fields: {str(e)}")
 
         scroll_layout.addWidget(form_widget)
 
-        # Description section
-        description_label = QLabel("Description")
-        description_label.setStyleSheet("font-weight: bold; font-size: 14px;")
-        scroll_layout.addWidget(description_label)
-
-        self.metadata_description = QTextEdit()
-        self.metadata_description.setMinimumHeight(100)
-        self.metadata_description.setPlaceholderText("Book description")
-        self.metadata_description.setSizePolicy(
-            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding
-        )
-        scroll_layout.addWidget(self.metadata_description)
-
-        # Cover image section
+        # Cover image section with horizontal layout
         cover_widget = QWidget()
-        cover_layout = QVBoxLayout(cover_widget)
+        cover_layout = QHBoxLayout(cover_widget)
         cover_layout.setContentsMargins(0, 12, 0, 0)
+        cover_layout.setSpacing(8)
 
-        cover_label = QLabel("Cover Image")
-        cover_label.setStyleSheet("font-weight: bold; font-size: 14px;")
-        cover_layout.addWidget(cover_label)
-
-        # Image preview with fixed size and proper styling
+        # Left side: Image preview
         try:
             self.cover_image_label = QLabel()
             self.cover_image_label.setFixedSize(200, 200)
@@ -685,22 +699,28 @@ class AudiobookConverterGUI(QMainWindow):
             )
             self.cover_image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             self.cover_image_label.setText("No image selected")
-            cover_layout.addWidget(
-                self.cover_image_label, alignment=Qt.AlignmentFlag.AlignHCenter
-            )
+            cover_layout.addWidget(self.cover_image_label)
         except Exception as e:
             logging.error(f"Error setting up cover image label: {str(e)}")
 
-        # Cover image buttons
-        button_layout = QHBoxLayout()
-        select_cover_button = QPushButton("Select Image")
-        select_cover_button.clicked.connect(self.select_cover_image)
-        clear_cover_button = QPushButton("Clear Image")
-        clear_cover_button.clicked.connect(self.clear_cover_image)
+        # Right side: Buttons in vertical layout
+        buttons_layout = QVBoxLayout()
+        buttons_layout.setSpacing(8)
+        buttons_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
 
-        button_layout.addWidget(select_cover_button)
-        button_layout.addWidget(clear_cover_button)
-        cover_layout.addLayout(button_layout)
+        # Select button
+        select_button = QPushButton("Select Image")
+        select_button.setFixedWidth(100)
+        select_button.clicked.connect(self.select_cover_image)
+
+        # Clear button
+        clear_button = QPushButton("Clear Image")
+        clear_button.setFixedWidth(100)
+        clear_button.clicked.connect(self.clear_cover_image)
+
+        buttons_layout.addWidget(select_button)
+        buttons_layout.addWidget(clear_button)
+        cover_layout.addLayout(buttons_layout)
 
         scroll_layout.addWidget(cover_widget)
         scroll_layout.addStretch()
@@ -999,16 +1019,29 @@ class AudiobookConverterGUI(QMainWindow):
                         # Find all {n} patterns in replacement text
                         n_pattern = re.compile(r"\{n+(?:\+\d+)?\}")
                         actual_replacement = replacement_text
+
                         for n_match in n_pattern.finditer(replacement_text):
-                            n_pattern_text = n_match.group(0)[1:-1]  # Remove { and }
-                            formatted_num = self.format_number(
-                                global_counter - 1, n_pattern_text
-                            )
-                            actual_replacement = actual_replacement.replace(
-                                n_match.group(0), formatted_num
-                            )
+                            try:
+                                n_pattern_text = n_match.group(0)[
+                                    1:-1
+                                ]  # Remove { and }
+                                formatted_num = self.format_number(
+                                    global_counter - 1, n_pattern_text
+                                )
+                                actual_replacement = actual_replacement.replace(
+                                    n_match.group(0), formatted_num
+                                )
+                            except Exception as e:
+                                logging.error(f"Error formatting number: {str(e)}")
+                                continue
+
+                        # Apply the replacement
                         current_title = pattern.sub(actual_replacement, current_title)
-                except re.error:
+                except re.error as e:
+                    logging.error(f"Invalid regex pattern: {str(e)}")
+                    continue
+                except Exception as e:
+                    logging.error(f"Error applying pattern: {str(e)}")
                     continue
             chapter_titles.append(current_title)
             global_counter += 1
@@ -1184,17 +1217,25 @@ class AudiobookConverterGUI(QMainWindow):
                                             for n_match in n_pattern.finditer(
                                                 replacement_text
                                             ):
-                                                n_pattern_text = n_match.group(0)[
-                                                    1:-1
-                                                ]  # Remove { and }
-                                                formatted_num = self.format_number(
-                                                    global_counter - 1, n_pattern_text
-                                                )
-                                                actual_replacement = (
-                                                    actual_replacement.replace(
-                                                        n_match.group(0), formatted_num
+                                                try:
+                                                    n_pattern_text = n_match.group(0)[
+                                                        1:-1
+                                                    ]  # Remove { and }
+                                                    formatted_num = self.format_number(
+                                                        global_counter - 1,
+                                                        n_pattern_text,
                                                     )
-                                                )
+                                                    actual_replacement = (
+                                                        actual_replacement.replace(
+                                                            n_match.group(0),
+                                                            formatted_num,
+                                                        )
+                                                    )
+                                                except Exception as e:
+                                                    logging.error(
+                                                        f"Error formatting number: {str(e)}"
+                                                    )
+                                                    continue
 
                                             # Add the replacement with background color and text color
                                             rich_text += f'<span style="background-color: #E6FFE6; color: #28a745;">{actual_replacement}</span>'
