@@ -195,6 +195,30 @@ def run_ffmpeg_with_progress(cmd: List[str], stop_event=None) -> None:
         raise RuntimeError(f"FFmpeg error: {stderr}")
 
 
+def get_audio_codec(file_path: str) -> str:
+    """Get audio codec of the file using ffprobe."""
+    try:
+        cmd = [
+            "ffprobe",
+            "-i",
+            file_path,
+            "-show_entries",
+            "stream=codec_name",
+            "-select_streams",
+            "a:0",
+            "-v",
+            "quiet",
+            "-of",
+            "csv=p=0",
+        ]
+        result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+        codec = result.stdout.strip()
+        return codec.lower() if codec else ""
+    except subprocess.CalledProcessError:
+        logging.warning(f"Failed to get codec info for {file_path}")
+        return ""
+
+
 def generate_m4b(
     input_dir: str,
     output_file: str,
@@ -214,6 +238,15 @@ def generate_m4b(
 
         # Process input files
         input_files = process_audio_files(input_dir)
+
+        # Check if all files are AAC for copy mode
+        can_copy = False
+        if settings and settings.get("codec") == "Auto (Copy if possible)":
+            can_copy = all(get_audio_codec(f) in ["aac", "mp4a"] for f in input_files)
+            if not can_copy:
+                logging.info(
+                    "Some files are not AAC, will convert to AAC instead of copying"
+                )
 
         # Create concat and chapter files
         concat_file = create_concat_file(input_files)
@@ -243,7 +276,7 @@ def generate_m4b(
         # Audio codec settings
         if settings:
             codec = settings.get("codec", "AAC")
-            if codec == "Auto (Copy if possible)":
+            if codec == "Auto (Copy if possible)" and can_copy:
                 cmd.extend(["-c:a", "copy"])
             else:
                 cmd.extend(["-c:a", "aac"])
