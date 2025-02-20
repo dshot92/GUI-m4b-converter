@@ -549,28 +549,27 @@ class AudiobookConverterGUI(QMainWindow):
     def create_metadata_tab(self):
         metadata_tab = QWidget()
         layout = QVBoxLayout(metadata_tab)
-        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setContentsMargins(8, 8, 8, 8)
+        layout.setSpacing(12)
 
-        # Create vertical splitter for the whole tab
-        main_splitter = QSplitter(Qt.Orientation.Vertical)
-        main_splitter.setChildrenCollapsible(
-            False
-        )  # Prevent sections from being collapsed
-        layout.addWidget(main_splitter)
-
-        # Upper section with form fields
-        form_widget = QWidget()
-        form_widget.setMinimumHeight(300)  # Set minimum height
-        form_widget.setSizePolicy(
-            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding
-        )
-        form_layout = QVBoxLayout(form_widget)
-        form_layout.setContentsMargins(4, 4, 4, 4)
+        # Create scroll area for the form
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setFrameShape(QFrame.Shape.NoFrame)
+        scroll_widget = QWidget()
+        scroll_layout = QVBoxLayout(scroll_widget)
+        scroll_layout.setContentsMargins(0, 0, 0, 0)
+        scroll_layout.setSpacing(16)
 
         # Form layout for metadata fields
-        fields_layout = QFormLayout()
+        form_widget = QWidget()
+        fields_layout = QFormLayout(form_widget)
+        fields_layout.setContentsMargins(0, 0, 0, 0)
+        fields_layout.setSpacing(8)
+        fields_layout.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
+        fields_layout.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
 
-        # Basic metadata fields
+        # Basic metadata fields with consistent size policies
         self.metadata_title = QLineEdit()
         self.metadata_author = QLineEdit()
         self.metadata_narrator = QLineEdit()
@@ -579,6 +578,13 @@ class AudiobookConverterGUI(QMainWindow):
         self.metadata_genre = QLineEdit()
         self.metadata_year = QLineEdit()
 
+        # Set size policies for all line edits
+        for widget in [self.metadata_title, self.metadata_author, self.metadata_narrator,
+                      self.metadata_series, self.metadata_series_index, self.metadata_genre,
+                      self.metadata_year]:
+            widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+
+        # Add fields with proper spacing
         fields_layout.addRow("Title:", self.metadata_title)
         fields_layout.addRow("Author:", self.metadata_author)
         fields_layout.addRow("Narrator:", self.metadata_narrator)
@@ -586,35 +592,47 @@ class AudiobookConverterGUI(QMainWindow):
         fields_layout.addRow("Series Index:", self.metadata_series_index)
         fields_layout.addRow("Genre:", self.metadata_genre)
         fields_layout.addRow("Year:", self.metadata_year)
-        form_layout.addLayout(fields_layout)
+
+        scroll_layout.addWidget(form_widget)
 
         # Description section
-        form_layout.addWidget(QLabel("Description:"))
+        description_label = QLabel("Description:")
+        description_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        scroll_layout.addWidget(description_label)
+        
         self.metadata_description = QTextEdit()
-        form_layout.addWidget(self.metadata_description)
+        self.metadata_description.setMinimumHeight(100)
+        self.metadata_description.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        scroll_layout.addWidget(self.metadata_description)
 
-        main_splitter.addWidget(form_widget)
+        scroll_area.setWidget(scroll_widget)
+        layout.addWidget(scroll_area, stretch=2)
 
         # Cover image section
         cover_widget = QWidget()
-        cover_widget.setMinimumHeight(250)  # Set minimum height
-        cover_widget.setSizePolicy(
-            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding
-        )
+        cover_widget.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
         cover_layout = QHBoxLayout(cover_widget)
-        cover_layout.setContentsMargins(4, 4, 4, 4)
+        cover_layout.setContentsMargins(0, 0, 0, 0)
+        cover_layout.setSpacing(16)
 
-        # Image preview
+        # Image preview with fixed size and proper styling
         self.cover_image_label = QLabel()
-        self.cover_image_label.setMinimumSize(200, 200)
-        self.cover_image_label.setStyleSheet("border: 1px solid gray")
+        self.cover_image_label.setFixedSize(200, 200)
+        self.cover_image_label.setStyleSheet("""
+            QLabel {
+                border: 1px solid #666;
+                background-color: #2b2b2b;
+                border-radius: 4px;
+            }
+        """)
         self.cover_image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.cover_image_label.setText("No image selected")
         cover_layout.addWidget(self.cover_image_label)
 
-        # Image buttons layout
-        button_widget = QWidget()
-        button_layout = QVBoxLayout(button_widget)
+        # Image buttons in vertical layout
+        button_layout = QVBoxLayout()
+        button_layout.setSpacing(8)
+        
         select_image_button = QPushButton("Select Cover Image")
         select_image_button.clicked.connect(self.select_cover_image)
         clear_image_button = QPushButton("Clear Image")
@@ -623,15 +641,11 @@ class AudiobookConverterGUI(QMainWindow):
         button_layout.addWidget(select_image_button)
         button_layout.addWidget(clear_image_button)
         button_layout.addStretch()
-        cover_layout.addWidget(button_widget)
+        
+        cover_layout.addLayout(button_layout)
+        cover_layout.addStretch()
 
-        main_splitter.addWidget(cover_widget)
-
-        # Store splitter reference and default sizes
-        self.tab_splitters["Metadata"] = [(main_splitter, [700, 300])]
-
-        # Set initial sizes (70% for form, 30% for cover)
-        main_splitter.setSizes([700, 300])
+        layout.addWidget(cover_widget)
 
         self.tabs.addTab(metadata_tab, "Metadata")
 
