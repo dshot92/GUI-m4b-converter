@@ -1,6 +1,9 @@
 import os
 import re
 import logging
+import requests
+import tempfile
+from urllib.parse import urlparse
 
 # Add environment variables to suppress Qt warnings and improve behavior
 os.environ["QT_LOGGING_RULES"] = "*=false"
@@ -30,6 +33,7 @@ from PyQt6.QtWidgets import (
     QSizePolicy,
     QSplitter,
     QFrame,
+    QMessageBox,
 )
 from PyQt6.QtCore import Qt, pyqtSignal, QRectF
 from PyQt6.QtGui import QPixmap, QColor, QTextDocument, QIcon
@@ -37,6 +41,7 @@ from PyQt6.QtGui import QPixmap, QColor, QTextDocument, QIcon
 from audiobook_converter.core.converter import ConversionThread
 from audiobook_converter.utils.logging import setup_logging
 from audiobook_converter.core.m4b_generator import get_audio_title, process_audio_files
+from audiobook_converter.core.book_api import search_google_books
 
 
 class HTMLDelegate(QStyledItemDelegate):
@@ -561,15 +566,36 @@ class AudiobookConverterGUI(QMainWindow):
         scroll_layout.setContentsMargins(0, 0, 0, 0)
         scroll_layout.setSpacing(16)
 
+        # Quick Match section with improved styling
+        quick_match_group = QWidget()
+        quick_match_layout = QHBoxLayout(quick_match_group)
+        quick_match_layout.setContentsMargins(0, 0, 0, 12)
+
+        quick_match_button = QPushButton("Search Book Metadata")
+        quick_match_button.clicked.connect(self.fetch_book_metadata)
+        quick_match_layout.addStretch()
+        quick_match_layout.addWidget(quick_match_button)
+        quick_match_layout.addStretch()
+
+        scroll_layout.addWidget(quick_match_group)
+
+        # Separator line
+        line = QFrame()
+        line.setFrameShape(QFrame.Shape.HLine)
+        line.setFrameShadow(QFrame.Shadow.Sunken)
+        scroll_layout.addWidget(line)
+
         # Form layout for metadata fields
         form_widget = QWidget()
         fields_layout = QFormLayout(form_widget)
         fields_layout.setContentsMargins(0, 0, 0, 0)
         fields_layout.setSpacing(8)
         fields_layout.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
-        fields_layout.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
+        fields_layout.setFieldGrowthPolicy(
+            QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow
+        )
 
-        # Basic metadata fields with consistent size policies
+        # Create and style metadata fields
         self.metadata_title = QLineEdit()
         self.metadata_author = QLineEdit()
         self.metadata_narrator = QLineEdit()
@@ -578,74 +604,109 @@ class AudiobookConverterGUI(QMainWindow):
         self.metadata_genre = QLineEdit()
         self.metadata_year = QLineEdit()
 
-        # Set size policies for all line edits
-        for widget in [self.metadata_title, self.metadata_author, self.metadata_narrator,
-                      self.metadata_series, self.metadata_series_index, self.metadata_genre,
-                      self.metadata_year]:
-            widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        # Set size policies and placeholders
+        for widget in [
+            self.metadata_title,
+            self.metadata_author,
+            self.metadata_narrator,
+            self.metadata_series,
+            self.metadata_series_index,
+            self.metadata_genre,
+            self.metadata_year,
+        ]:
+            try:
+                widget.setSizePolicy(
+                    QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
+                )
+                widget.setMinimumWidth(300)
+            except Exception as e:
+                logging.error(f"Error setting widget properties: {str(e)}")
 
-        # Add fields with proper spacing
-        fields_layout.addRow("Title:", self.metadata_title)
-        fields_layout.addRow("Author:", self.metadata_author)
-        fields_layout.addRow("Narrator:", self.metadata_narrator)
-        fields_layout.addRow("Series:", self.metadata_series)
-        fields_layout.addRow("Series Index:", self.metadata_series_index)
-        fields_layout.addRow("Genre:", self.metadata_genre)
-        fields_layout.addRow("Year:", self.metadata_year)
+        # Set placeholders
+        try:
+            self.metadata_title.setPlaceholderText("Book title")
+            self.metadata_author.setPlaceholderText("Author name")
+            self.metadata_narrator.setPlaceholderText("Narrator name")
+            self.metadata_series.setPlaceholderText("Series name (if applicable)")
+            self.metadata_series_index.setPlaceholderText("Series book number")
+            self.metadata_genre.setPlaceholderText("Book genre")
+            self.metadata_year.setPlaceholderText("Publication year")
+        except Exception as e:
+            logging.error(f"Error setting placeholders: {str(e)}")
+
+        # Add fields with labels
+        try:
+            fields_layout.addRow("Title:", self.metadata_title)
+            fields_layout.addRow("Author:", self.metadata_author)
+            fields_layout.addRow("Narrator:", self.metadata_narrator)
+            fields_layout.addRow("Series:", self.metadata_series)
+            fields_layout.addRow("Series Index:", self.metadata_series_index)
+            fields_layout.addRow("Genre:", self.metadata_genre)
+            fields_layout.addRow("Year:", self.metadata_year)
+        except Exception as e:
+            logging.error(f"Error adding form fields: {str(e)}")
 
         scroll_layout.addWidget(form_widget)
 
         # Description section
-        description_label = QLabel("Description:")
-        description_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        description_label = QLabel("Description")
+        description_label.setStyleSheet("font-weight: bold; font-size: 14px;")
         scroll_layout.addWidget(description_label)
-        
+
         self.metadata_description = QTextEdit()
         self.metadata_description.setMinimumHeight(100)
-        self.metadata_description.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        self.metadata_description.setPlaceholderText("Book description")
+        self.metadata_description.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding
+        )
         scroll_layout.addWidget(self.metadata_description)
-
-        scroll_area.setWidget(scroll_widget)
-        layout.addWidget(scroll_area, stretch=2)
 
         # Cover image section
         cover_widget = QWidget()
-        cover_widget.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
-        cover_layout = QHBoxLayout(cover_widget)
-        cover_layout.setContentsMargins(0, 0, 0, 0)
-        cover_layout.setSpacing(16)
+        cover_layout = QVBoxLayout(cover_widget)
+        cover_layout.setContentsMargins(0, 12, 0, 0)
+
+        cover_label = QLabel("Cover Image")
+        cover_label.setStyleSheet("font-weight: bold; font-size: 14px;")
+        cover_layout.addWidget(cover_label)
 
         # Image preview with fixed size and proper styling
-        self.cover_image_label = QLabel()
-        self.cover_image_label.setFixedSize(200, 200)
-        self.cover_image_label.setStyleSheet("""
-            QLabel {
-                border: 1px solid #666;
-                background-color: #2b2b2b;
-                border-radius: 4px;
-            }
-        """)
-        self.cover_image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.cover_image_label.setText("No image selected")
-        cover_layout.addWidget(self.cover_image_label)
+        try:
+            self.cover_image_label = QLabel()
+            self.cover_image_label.setFixedSize(200, 200)
+            self.cover_image_label.setStyleSheet(
+                """
+                QLabel {
+                    background-color: #2b2b2b;
+                    border-radius: 4px;
+                    border: 1px solid #3f3f3f;
+                }
+            """
+            )
+            self.cover_image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            self.cover_image_label.setText("No image selected")
+            cover_layout.addWidget(
+                self.cover_image_label, alignment=Qt.AlignmentFlag.AlignHCenter
+            )
+        except Exception as e:
+            logging.error(f"Error setting up cover image label: {str(e)}")
 
-        # Image buttons in vertical layout
-        button_layout = QVBoxLayout()
-        button_layout.setSpacing(8)
-        
-        select_image_button = QPushButton("Select Cover Image")
-        select_image_button.clicked.connect(self.select_cover_image)
-        clear_image_button = QPushButton("Clear Image")
-        clear_image_button.clicked.connect(self.clear_cover_image)
+        # Cover image buttons
+        button_layout = QHBoxLayout()
+        select_cover_button = QPushButton("Select Image")
+        select_cover_button.clicked.connect(self.select_cover_image)
+        clear_cover_button = QPushButton("Clear Image")
+        clear_cover_button.clicked.connect(self.clear_cover_image)
 
-        button_layout.addWidget(select_image_button)
-        button_layout.addWidget(clear_image_button)
-        button_layout.addStretch()
-        
+        button_layout.addWidget(select_cover_button)
+        button_layout.addWidget(clear_cover_button)
         cover_layout.addLayout(button_layout)
-        cover_layout.addStretch()
 
-        layout.addWidget(cover_widget)
+        scroll_layout.addWidget(cover_widget)
+        scroll_layout.addStretch()
+
+        scroll_area.setWidget(scroll_widget)
+        layout.addWidget(scroll_area)
 
         self.tabs.addTab(metadata_tab, "Metadata")
 
@@ -707,6 +768,112 @@ class AudiobookConverterGUI(QMainWindow):
         splitter.setSizes([700, 300])
 
         self.tabs.addTab(settings_tab, "Settings")
+
+    def fetch_book_metadata(self):
+        """Fetch book metadata from Google Books API."""
+        try:
+            # Build search query from existing metadata fields
+            query_parts = []
+
+            title = self.metadata_title.text().strip()
+            author = self.metadata_author.text().strip()
+
+            if title:
+                query_parts.append(title)
+            if author:
+                query_parts.append(f"author:{author}")
+
+            if not query_parts:
+                QMessageBox.warning(
+                    self,
+                    "Warning",
+                    "Please enter at least a book title or author name.",
+                )
+                return
+
+            # Construct query with exclusions for summaries/study guides
+            query = (
+                " ".join(query_parts) + " -summary -quicklet -cliffnotes -study guide"
+            )
+
+            # Get all matching books
+            all_metadata = search_google_books(query, multiple=True)
+            if not all_metadata:
+                QMessageBox.warning(self, "Warning", "No matching book found.")
+                return
+
+            # Filter out summaries/study guides
+            valid_books = [
+                book
+                for book in all_metadata
+                if not any(
+                    x in book.get("title", "").lower()
+                    for x in ["summary", "quicklet", "cliffnotes", "study guide"]
+                )
+            ]
+
+            if not valid_books:
+                QMessageBox.warning(
+                    self,
+                    "Warning",
+                    "Found only summaries/study guides. Please try adding the author name if not specified.",
+                )
+                return
+
+            # Sort by publication date (ascending) to get the earliest edition first
+            valid_books.sort(
+                key=lambda x: x.get("date", "9999")
+            )  # Default to far future if no date
+            metadata = valid_books[0]  # Take the earliest edition
+
+            # Update metadata fields with proper error handling
+            if not self.metadata_title.text():
+                self.metadata_title.setText(metadata.get("title", ""))
+            if not self.metadata_author.text():
+                self.metadata_author.setText(metadata.get("artist", ""))
+            if not self.metadata_narrator.text():
+                self.metadata_narrator.setText(metadata.get("album_artist", ""))
+            if not self.metadata_series.text():
+                self.metadata_series.setText(metadata.get("album", ""))
+            if not self.metadata_series_index.text():
+                self.metadata_series_index.setText(metadata.get("track", ""))
+            if not self.metadata_genre.text():
+                self.metadata_genre.setText(metadata.get("genre", ""))
+            if not self.metadata_year.text():
+                self.metadata_year.setText(metadata.get("date", ""))
+            if not self.metadata_description.toPlainText():
+                self.metadata_description.setText(metadata.get("description", ""))
+
+            # Handle cover image if available
+            if "cover_url" in metadata and metadata["cover_url"]:
+                try:
+                    # Download the cover image
+                    response = requests.get(metadata["cover_url"])
+                    response.raise_for_status()
+
+                    # Create a temporary file for the image with proper extension
+                    url_path = urlparse(metadata["cover_url"]).path
+                    ext = (
+                        os.path.splitext(url_path)[1] or ".jpg"
+                    )  # Default to .jpg if no extension
+
+                    with tempfile.NamedTemporaryFile(
+                        delete=False, suffix=ext
+                    ) as tmp_file:
+                        tmp_file.write(response.content)
+                        self.cover_image_path = tmp_file.name
+
+                    self.update_cover_preview()
+                    logging.info("Cover image downloaded successfully")
+                except Exception as e:
+                    logging.error(f"Error downloading cover image: {str(e)}")
+                    self.clear_cover_image()
+
+        except Exception as e:
+            logging.error(f"Error fetching book metadata: {str(e)}")
+            QMessageBox.warning(
+                self, "Error", f"Failed to fetch book metadata: {str(e)}"
+            )
 
     def select_cover_image(self):
         file_name, _ = QFileDialog.getOpenFileName(
