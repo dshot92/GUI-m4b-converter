@@ -7,6 +7,7 @@ from typing import Dict, List, Optional
 class ConversionThread(QThread):
     finished = pyqtSignal()
     error = pyqtSignal(str)
+    stopped = pyqtSignal()
 
     def __init__(
         self,
@@ -22,6 +23,10 @@ class ConversionThread(QThread):
         self.metadata = metadata
         self.settings = settings
         self.chapter_titles = chapter_titles
+        self._stop_requested = False
+
+    def stop(self):
+        self._stop_requested = True
 
     def run(self):
         try:
@@ -31,7 +36,11 @@ class ConversionThread(QThread):
                 metadata=self.metadata,
                 settings=self.settings,
                 chapter_titles=self.chapter_titles,
+                stop_event=lambda: self._stop_requested,
             )
-            self.finished.emit()
+            if self._stop_requested:
+                self.stopped.emit()
+            else:
+                self.finished.emit()
         except Exception as e:
             self.error.emit(str(e))

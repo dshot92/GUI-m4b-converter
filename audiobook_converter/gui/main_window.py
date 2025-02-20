@@ -507,10 +507,10 @@ class AudiobookConverterGUI(QMainWindow):
 
         main_layout.addWidget(form_widget)
 
-        # Convert button
-        self.convert_button = QPushButton("Convert to M4B")
-        self.convert_button.clicked.connect(self.start_conversion)
-        main_layout.addWidget(self.convert_button)
+        # Convert/Stop button
+        self.convert_stop_button = QPushButton("Convert to M4B")
+        self.convert_stop_button.clicked.connect(self.handle_convert_stop)
+        main_layout.addWidget(self.convert_stop_button)
 
         main_layout.addStretch()
         self.tabs.addTab(main_tab, "Input/Output")
@@ -1069,6 +1069,16 @@ class AudiobookConverterGUI(QMainWindow):
             except ValueError:
                 self.output_path.setText(file_name)
 
+    def handle_convert_stop(self):
+        if self.conversion_thread and self.conversion_thread.isRunning():
+            # Stop conversion
+            self.conversion_thread.stop()
+            self.convert_stop_button.setEnabled(False)
+            self.convert_stop_button.setText("Stopping...")
+        else:
+            # Start conversion
+            self.start_conversion()
+
     def start_conversion(self):
         input_dir = self.input_path.text()
         output_file = self.output_path.text()
@@ -1084,7 +1094,8 @@ class AudiobookConverterGUI(QMainWindow):
             logging.error("Invalid input directory")
             return
 
-        self.convert_button.setEnabled(False)
+        # Update button to show stop state
+        self.convert_stop_button.setText("Stop")
         self.progress_bar.setVisible(True)
         self.progress_bar.setRange(0, 0)
 
@@ -1142,17 +1153,26 @@ class AudiobookConverterGUI(QMainWindow):
             input_dir, output_file, metadata, settings, chapter_titles
         )
         self.conversion_thread.finished.connect(self.conversion_finished)
+        self.conversion_thread.stopped.connect(self.conversion_stopped)
         self.conversion_thread.error.connect(self.conversion_error)
         self.conversion_thread.start()
 
+    def conversion_stopped(self):
+        self.progress_bar.setVisible(False)
+        self.convert_stop_button.setEnabled(True)
+        self.convert_stop_button.setText("Convert to M4B")
+        logging.info("Conversion stopped by user")
+
     def conversion_finished(self):
         self.progress_bar.setVisible(False)
-        self.convert_button.setEnabled(True)
+        self.convert_stop_button.setEnabled(True)
+        self.convert_stop_button.setText("Convert to M4B")
         logging.info("Conversion completed successfully!")
 
     def conversion_error(self, error_message):
         self.progress_bar.setVisible(False)
-        self.convert_button.setEnabled(True)
+        self.convert_stop_button.setEnabled(True)
+        self.convert_stop_button.setText("Convert to M4B")
         logging.error(f"Conversion failed: {error_message}")
 
     def update_chapter_list(self):

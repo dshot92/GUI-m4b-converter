@@ -168,7 +168,7 @@ def create_concat_file(files: List[str]) -> str:
     return concat_file
 
 
-def run_ffmpeg_with_progress(cmd: List[str]) -> None:
+def run_ffmpeg_with_progress(cmd: List[str], stop_event=None) -> None:
     """Run ffmpeg command and show progress in real-time."""
     process = subprocess.Popen(
         cmd,
@@ -179,6 +179,11 @@ def run_ffmpeg_with_progress(cmd: List[str]) -> None:
     )
 
     while True:
+        if stop_event and stop_event():
+            process.terminate()
+            process.wait()
+            raise RuntimeError("Conversion stopped by user")
+
         line = process.stderr.readline()
         if not line and process.poll() is not None:
             break
@@ -196,6 +201,7 @@ def generate_m4b(
     metadata: Optional[Dict] = None,
     settings: Optional[Dict] = None,
     chapter_titles: Optional[List[str]] = None,
+    stop_event=None,
 ) -> None:
     """Generate M4B file from input files."""
     if not check_dependencies():
@@ -253,54 +259,27 @@ def generate_m4b(
             cmd.extend(["-c:a", "aac", "-b:a", "128k"])
 
         # Add output file
-        cmd.extend(["-movflags", "+faststart", output_file])  # Optimize for streaming
+        cmd.append(output_file)
 
-        # Run ffmpeg for audio conversion
-        logging.info(f"Running audio conversion command: {' '.join(cmd)}")
-        run_ffmpeg_with_progress(cmd)
+        # Run FFmpeg
+        run_ffmpeg_with_progress(cmd, stop_event)
 
-        # Add metadata using mutagen if provided
+        # Add metadata if provided
         if metadata:
             try:
                 audio = MP4(output_file)
 
-                # Map metadata fields to MP4 tags
-                tag_mapping = {
-                    "title": "\xa9nam",
-                    "artist": "\xa9ART",
-                    "album_artist": "aART",
-                    "album": "\xa9alb",
-                    "genre": "\xa9gen",
-                    "date": "\xa9day",
-                    "description": "\xa9des",
-                }
-
-                # Set metadata
+                # Add each metadata field
                 for key, value in metadata.items():
-                    if key != "cover_path" and value:
-                        mp4_key = tag_mapping.get(key)
-                        if mp4_key:
-                            audio[mp4_key] = value
-
-                # Add cover art if provided
-                if metadata.get("cover_path"):
-                    with open(metadata["cover_path"], "rb") as f:
-                        cover_data = f.read()
-                        # Determine image format and set appropriate cover type
-                        if metadata["cover_path"].lower().endswith((".jpg", ".jpeg")):
-                            cover = MP4Cover(
-                                cover_data, imageformat=MP4Cover.FORMAT_JPEG
-                            )
-                        elif metadata["cover_path"].lower().endswith(".png"):
-                            cover = MP4Cover(
-                                cover_data, imageformat=MP4Cover.FORMAT_PNG
-                            )
-                        else:
-                            logging.warning("Unsupported cover image format")
-                            cover = None
-
-                        if cover:
-                            audio["covr"] = [cover]
+                    if key == "cover_path" and value:
+                        try:
+                            with open(value, "rb") as f:
+                                cover_data = f.read()
+                            audio["covr"] = [MP4Cover(cover_data)]
+                        except Exception as e:
+                            logging.error(f"Error adding cover art: {str(e)}")
+                    elif value:  # Only add non-empty values
+                        audio[key] = value
 
                 # Save changes
                 audio.save()
