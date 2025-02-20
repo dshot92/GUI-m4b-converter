@@ -406,11 +406,19 @@ class AudiobookConverterGUI(QMainWindow):
         log_layout.setContentsMargins(4, 4, 4, 4)
 
         # Add a label for the console
+        console_header = QHBoxLayout()
         console_label = QLabel("Console Output:")
         console_label.setSizePolicy(
             QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
         )
-        log_layout.addWidget(console_label)
+        console_header.addWidget(console_label)
+
+        # Add clear console button
+        clear_console_button = QPushButton("Clear Console")
+        clear_console_button.clicked.connect(lambda: self.log_output.clear())
+        console_header.addWidget(clear_console_button)
+
+        log_layout.addLayout(console_header)
 
         self.log_output = QTextEdit()
         self.log_output.setReadOnly(True)
@@ -441,6 +449,8 @@ class AudiobookConverterGUI(QMainWindow):
         self.input_path = QLineEdit()
         self.input_path.setPlaceholderText("Input Directory")
         self.input_path.textChanged.connect(self.update_chapter_list)
+        self.input_path.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.input_path.customContextMenuRequested.connect(self.show_input_context_menu)
         input_button = QPushButton("Browse")
         input_button.clicked.connect(self.select_input_directory)
         input_layout.addWidget(QLabel("Input Directory:"))
@@ -452,6 +462,10 @@ class AudiobookConverterGUI(QMainWindow):
         output_layout = QHBoxLayout()
         self.output_path = QLineEdit()
         self.output_path.setPlaceholderText("Output M4B File")
+        self.output_path.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.output_path.customContextMenuRequested.connect(
+            self.show_output_context_menu
+        )
         output_button = QPushButton("Browse")
         output_button.clicked.connect(self.select_output_file)
         output_layout.addWidget(QLabel("Output File:"))
@@ -981,27 +995,35 @@ class AudiobookConverterGUI(QMainWindow):
                                     rich_text += current_title[last_end : match.start()]
 
                                     if replacement_text:
-                                        # Find all {n} patterns in replacement text
-                                        n_pattern = re.compile(r"\{n+(?:\+\d+)?\}")
-                                        actual_replacement = replacement_text
+                                        try:
+                                            # Find all {n} patterns in replacement text
+                                            n_pattern = re.compile(r"\{n+(?:\+\d+)?\}")
+                                            actual_replacement = replacement_text
 
-                                        for n_match in n_pattern.finditer(
-                                            replacement_text
-                                        ):
-                                            n_pattern_text = n_match.group(0)[
-                                                1:-1
-                                            ]  # Remove { and }
-                                            formatted_num = self.format_number(
-                                                global_counter - 1, n_pattern_text
-                                            )
-                                            actual_replacement = (
-                                                actual_replacement.replace(
-                                                    n_match.group(0), formatted_num
+                                            for n_match in n_pattern.finditer(
+                                                replacement_text
+                                            ):
+                                                n_pattern_text = n_match.group(0)[
+                                                    1:-1
+                                                ]  # Remove { and }
+                                                formatted_num = self.format_number(
+                                                    global_counter - 1, n_pattern_text
                                                 )
-                                            )
+                                                actual_replacement = (
+                                                    actual_replacement.replace(
+                                                        n_match.group(0), formatted_num
+                                                    )
+                                                )
 
-                                        # Add the replacement with background color and text color
-                                        rich_text += f'<span style="background-color: #E6FFE6; color: #28a745;">{actual_replacement}</span>'
+                                            # Add the replacement with background color and text color
+                                            rich_text += f'<span style="background-color: #E6FFE6; color: #28a745;">{actual_replacement}</span>'
+                                        except Exception as e:
+                                            logging.error(
+                                                f"Error processing replacement pattern: {str(e)}"
+                                            )
+                                            rich_text += current_title[
+                                                match.start() : match.end()
+                                            ]
                                     else:
                                         # Show match in red if no replacement
                                         match_text = current_title[
@@ -1031,19 +1053,26 @@ class AudiobookConverterGUI(QMainWindow):
                                         )
                                     return result
 
-                                current_title = pattern.sub(
-                                    (
-                                        replace_with_counter
-                                        if re.search(
-                                            r"\{n+(?:\+\d+)?\}", replacement_text
-                                        )
-                                        else replacement_text
-                                    ),
-                                    current_title,
-                                )
+                                try:
+                                    current_title = pattern.sub(
+                                        (
+                                            replace_with_counter
+                                            if re.search(
+                                                r"\{n+(?:\+\d+)?\}", replacement_text
+                                            )
+                                            else replacement_text
+                                        ),
+                                        current_title,
+                                    )
+                                except Exception as e:
+                                    logging.error(f"Error replacing pattern: {str(e)}")
+                                    continue
 
-                        except re.error:
-                            # Skip invalid regex patterns
+                        except re.error as e:
+                            logging.error(f"Invalid regex pattern: {str(e)}")
+                            continue
+                        except Exception as e:
+                            logging.error(f"Error applying pattern: {str(e)}")
                             continue
 
                     # Set the final text
@@ -1110,3 +1139,59 @@ class AudiobookConverterGUI(QMainWindow):
             start = int(pattern.split("+")[1])
         num = num + start
         return f"{num:0{padding}d}"
+
+    def show_input_context_menu(self, position):
+        input_dir = self.input_path.text()
+        try:
+            if input_dir and os.path.isdir(os.path.abspath(input_dir)):
+                menu = QMenu()
+                open_action = menu.addAction("Open Directory")
+                action = menu.exec(self.input_path.mapToGlobal(position))
+
+                if action == open_action:
+                    self.open_input_directory()
+        except Exception as e:
+            logging.error(f"Error showing context menu: {str(e)}")
+
+    def open_input_directory(self):
+        input_dir = self.input_path.text()
+        if input_dir:
+            try:
+                abs_path = os.path.abspath(input_dir)
+                if os.path.isdir(abs_path):
+                    import subprocess
+
+                    # Use xdg-open on Linux
+                    subprocess.Popen(["xdg-open", abs_path])
+            except Exception as e:
+                logging.error(f"Error opening directory: {str(e)}")
+
+    def show_output_context_menu(self, position):
+        output_file = self.output_path.text()
+        try:
+            if output_file:
+                # Get the parent directory of the output file
+                output_dir = os.path.dirname(os.path.abspath(output_file))
+                if os.path.isdir(output_dir):
+                    menu = QMenu()
+                    open_action = menu.addAction("Open Directory")
+                    action = menu.exec(self.output_path.mapToGlobal(position))
+
+                    if action == open_action:
+                        self.open_output_directory()
+        except Exception as e:
+            logging.error(f"Error showing output context menu: {str(e)}")
+
+    def open_output_directory(self):
+        output_file = self.output_path.text()
+        if output_file:
+            try:
+                # Get the parent directory of the output file
+                output_dir = os.path.dirname(os.path.abspath(output_file))
+                if os.path.isdir(output_dir):
+                    import subprocess
+
+                    # Use xdg-open on Linux
+                    subprocess.Popen(["xdg-open", output_dir])
+            except Exception as e:
+                logging.error(f"Error opening output directory: {str(e)}")
