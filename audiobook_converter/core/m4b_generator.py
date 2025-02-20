@@ -83,10 +83,26 @@ def get_audio_title(file_path: str) -> str:
         ]
         result = subprocess.run(cmd, capture_output=True, text=True, check=True)
         title = result.stdout.strip()
-        return title if title else Path(file_path).stem
+
+        # If no metadata title, use filename
+        if not title:
+            title = Path(file_path).stem
+
+        # Clean up the title
+        # Remove quotes from start and end
+        title = title.strip("\"'")
+        # Replace multiple spaces with single space
+        title = " ".join(title.split())
+
+        return title
+
     except subprocess.CalledProcessError:
         logging.warning(f"Failed to get title metadata for {file_path}, using filename")
-        return Path(file_path).stem
+        # Clean up filename same way
+        title = Path(file_path).stem
+        title = title.strip("\"'")
+        title = " ".join(title.split())
+        return title
 
 
 def process_audio_files(directory: str, recursive: bool = False) -> List[str]:

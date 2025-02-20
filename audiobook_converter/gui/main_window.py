@@ -43,6 +43,13 @@ from audiobook_converter.core.converter import ConversionThread
 from audiobook_converter.utils.logging import setup_logging
 from audiobook_converter.core.m4b_generator import get_audio_title, process_audio_files
 from audiobook_converter.core.book_api import search_google_books
+from audiobook_converter.regex import (
+    RegexPatternWidget,
+    RegexListWidget,
+    apply_single_pattern,
+    process_replacement_text,
+    format_number,
+)
 
 
 class HTMLDelegate(QStyledItemDelegate):
@@ -70,273 +77,6 @@ class HTMLDelegate(QStyledItemDelegate):
             painter.restore()
         else:
             super().paint(painter, options, index)
-
-
-class RegexPatternWidget(QFrame):
-    patternChanged = pyqtSignal()
-
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.setFrameStyle(QFrame.Shape.StyledPanel)
-
-        layout = QHBoxLayout(self)
-        layout.setContentsMargins(4, 4, 4, 4)
-        layout.setSpacing(8)
-
-        # Move buttons
-        self.up_button = QPushButton("↑")
-        self.up_button.setFixedSize(24, 24)
-        self.down_button = QPushButton("↓")
-        self.down_button.setFixedSize(24, 24)
-
-        # Pattern input
-        self.pattern_input = QLineEdit()
-        self.pattern_input.setPlaceholderText("Pattern")
-        self.pattern_input.textChanged.connect(self.patternChanged)
-
-        # Replacement input
-        self.replacement_input = QLineEdit()
-        self.replacement_input.setPlaceholderText("Replace with")
-        self.replacement_input.textChanged.connect(self.patternChanged)
-
-        # Remove button
-        self.remove_button = QPushButton("×")
-        self.remove_button.setFixedSize(24, 24)
-
-        # Add widgets to layout
-        layout.addWidget(self.up_button)
-        layout.addWidget(self.down_button)
-        layout.addWidget(QLabel("Pattern:"))
-        layout.addWidget(self.pattern_input, 2)
-        layout.addWidget(QLabel("→"))
-        layout.addWidget(self.replacement_input, 2)
-        layout.addWidget(self.remove_button)
-
-    def get_pattern(self):
-        return self.pattern_input.text(), self.replacement_input.text()
-
-    def set_pattern(self, pattern, replacement):
-        self.pattern_input.setText(pattern)
-        self.replacement_input.setText(replacement)
-
-
-class RegexListWidget(QListWidget):
-    patternsChanged = pyqtSignal()
-
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.setDragDropMode(QListWidget.DragDropMode.InternalMove)
-        self.setSpacing(4)
-        self.setVerticalScrollMode(QListWidget.ScrollMode.ScrollPerPixel)
-        self.setHorizontalScrollMode(QListWidget.ScrollMode.ScrollPerPixel)
-
-    def get_regex_patterns(self):
-        patterns = []
-        try:
-            for i in range(self.count()):
-                item = self.item(i)
-                if not item:
-                    continue
-                widget = self.itemWidget(item)
-                if not widget:
-                    continue
-                try:
-                    pattern, replacement = widget.get_pattern()
-                    if pattern:  # Only include non-empty patterns
-                        patterns.append((pattern, replacement))
-                except Exception as e:
-                    logging.error(
-                        f"Error getting pattern from widget at index {i}: {str(e)}"
-                    )
-        except Exception as e:
-            logging.error(f"Error getting regex patterns: {str(e)}")
-        return patterns
-
-    def move_pattern_up(self, item):
-        row = self.row(item)
-        if row > 0:
-            # Store the current pattern and widget state
-            current_widget = self.itemWidget(item)
-            if not current_widget:
-                return
-            current_pattern = current_widget.get_pattern()
-
-            # Store the widget above's state
-            above_item = self.item(row - 1)
-            above_widget = self.itemWidget(above_item)
-            if not above_widget:
-                return
-            above_pattern = above_widget.get_pattern()
-
-            # Create new widgets with the swapped patterns
-            new_current = RegexPatternWidget()
-            new_current.set_pattern(*above_pattern)
-            new_above = RegexPatternWidget()
-            new_above.set_pattern(*current_pattern)
-
-            # Connect signals for the current widget (moving down)
-            new_current.patternChanged.connect(self.patternsChanged)
-            new_current.remove_button.clicked.connect(
-                lambda checked=False, i=item: self.remove_pattern(i)
-            )
-            new_current.up_button.clicked.connect(
-                lambda checked=False, i=item: self.move_pattern_up(i)
-            )
-            new_current.down_button.clicked.connect(
-                lambda checked=False, i=item: self.move_pattern_down(i)
-            )
-
-            # Connect signals for the above widget (moving up)
-            new_above.patternChanged.connect(self.patternsChanged)
-            new_above.remove_button.clicked.connect(
-                lambda checked=False, i=above_item: self.remove_pattern(i)
-            )
-            new_above.up_button.clicked.connect(
-                lambda checked=False, i=above_item: self.move_pattern_up(i)
-            )
-            new_above.down_button.clicked.connect(
-                lambda checked=False, i=above_item: self.move_pattern_down(i)
-            )
-
-            # Set the widgets
-            self.setItemWidget(item, new_current)
-            self.setItemWidget(above_item, new_above)
-
-            # Update button states and selection
-            self.setCurrentItem(above_item)
-            self.update_move_buttons()
-            self.patternsChanged.emit()
-
-    def move_pattern_down(self, item):
-        row = self.row(item)
-        if row < self.count() - 1:
-            # Store the current pattern and widget state
-            current_widget = self.itemWidget(item)
-            if not current_widget:
-                return
-            current_pattern = current_widget.get_pattern()
-
-            # Store the widget below's state
-            below_item = self.item(row + 1)
-            below_widget = self.itemWidget(below_item)
-            if not below_widget:
-                return
-            below_pattern = below_widget.get_pattern()
-
-            # Create new widgets with the swapped patterns
-            new_current = RegexPatternWidget()
-            new_current.set_pattern(*below_pattern)
-            new_below = RegexPatternWidget()
-            new_below.set_pattern(*current_pattern)
-
-            # Connect signals for the current widget (moving down)
-            new_current.patternChanged.connect(self.patternsChanged)
-            new_current.remove_button.clicked.connect(
-                lambda checked=False, i=item: self.remove_pattern(i)
-            )
-            new_current.up_button.clicked.connect(
-                lambda checked=False, i=item: self.move_pattern_up(i)
-            )
-            new_current.down_button.clicked.connect(
-                lambda checked=False, i=item: self.move_pattern_down(i)
-            )
-
-            # Connect signals for the below widget (moving up)
-            new_below.patternChanged.connect(self.patternsChanged)
-            new_below.remove_button.clicked.connect(
-                lambda checked=False, i=below_item: self.remove_pattern(i)
-            )
-            new_below.up_button.clicked.connect(
-                lambda checked=False, i=below_item: self.move_pattern_up(i)
-            )
-            new_below.down_button.clicked.connect(
-                lambda checked=False, i=below_item: self.move_pattern_down(i)
-            )
-
-            # Set the widgets
-            self.setItemWidget(item, new_current)
-            self.setItemWidget(below_item, new_below)
-
-            # Update button states and selection
-            self.setCurrentItem(below_item)
-            self.update_move_buttons()
-            self.patternsChanged.emit()
-
-    def update_move_buttons(self):
-        for i in range(self.count()):
-            item = self.item(i)
-            if item:
-                widget = self.itemWidget(item)
-                if widget:
-                    widget.up_button.setEnabled(i > 0)
-                    widget.down_button.setEnabled(i < self.count() - 1)
-
-    def add_pattern(self):
-        item = QListWidgetItem(self)
-        pattern_widget = RegexPatternWidget()
-
-        # Connect signals
-        pattern_widget.patternChanged.connect(self.patternsChanged)
-        pattern_widget.remove_button.clicked.connect(
-            lambda checked=False, item=item: self.remove_pattern(item)
-        )
-        pattern_widget.up_button.clicked.connect(
-            lambda checked=False, item=item: self.move_pattern_up(item)
-        )
-        pattern_widget.down_button.clicked.connect(
-            lambda checked=False, item=item: self.move_pattern_down(item)
-        )
-
-        item.setSizeHint(pattern_widget.sizeHint())
-        self.addItem(item)
-        self.setItemWidget(item, pattern_widget)
-        self.update_move_buttons()
-        return item
-
-    def remove_pattern(self, item):
-        row = self.row(item)
-        self.takeItem(row)
-        self.update_move_buttons()
-        self.patternsChanged.emit()
-
-    def dropEvent(self, event):
-        # Store current patterns and widgets before drop
-        stored_data = []
-        for i in range(self.count()):
-            item = self.item(i)
-            widget = self.itemWidget(item)
-            if widget:
-                pattern = widget.get_pattern()
-                stored_data.append((pattern, widget))
-
-        # Handle the drop
-        super().dropEvent(event)
-
-        # Restore widgets and patterns after drop
-        for i in range(min(len(stored_data), self.count())):
-            item = self.item(i)
-            if item:
-                pattern, old_widget = stored_data[i]
-                # Create a new widget to avoid Qt ownership issues
-                new_widget = RegexPatternWidget()
-                new_widget.set_pattern(*pattern)
-                # Connect signals
-                new_widget.patternChanged.connect(self.patternsChanged)
-                new_widget.remove_button.clicked.connect(
-                    lambda checked=False, item=item: self.remove_pattern(item)
-                )
-                new_widget.up_button.clicked.connect(
-                    lambda checked=False, item=item: self.move_pattern_up(item)
-                )
-                new_widget.down_button.clicked.connect(
-                    lambda checked=False, item=item: self.move_pattern_down(item)
-                )
-                # Set the widget
-                item.setSizeHint(new_widget.sizeHint())
-                self.setItemWidget(item, new_widget)
-
-        self.update_move_buttons()
-        self.patternsChanged.emit()
 
 
 class AudiobookConverterGUI(QMainWindow):
@@ -1142,7 +882,7 @@ class AudiobookConverterGUI(QMainWindow):
                                 n_pattern_text = n_match.group(0)[
                                     1:-1
                                 ]  # Remove { and }
-                                formatted_num = self.format_number(
+                                formatted_num = format_number(
                                     global_counter - 1, n_pattern_text
                                 )
                                 actual_replacement = actual_replacement.replace(
@@ -1289,92 +1029,6 @@ class AudiobookConverterGUI(QMainWindow):
         self.patterns_list.remove_pattern(item)
         self.update_chapter_preview()
 
-    def _apply_single_pattern(
-        self, title: str, pattern_text: str, replacement_text: str, global_counter: int
-    ) -> tuple[str, str]:
-        """Apply a single regex pattern to a title and generate rich text preview.
-
-        Args:
-            title: The title to process
-            pattern_text: The regex pattern to match
-            replacement_text: The replacement text (may contain {n} placeholders)
-            global_counter: Current chapter counter
-
-        Returns:
-            Tuple of (processed_title, rich_text_preview)
-        """
-        try:
-            pattern = re.compile(pattern_text)
-            matches = list(pattern.finditer(title))
-            if not matches:
-                return title, ""
-
-            # First process the actual title replacement to get the new title
-            def replace_with_counter(m):
-                return self._process_replacement_text(replacement_text, global_counter)
-
-            if re.search(r"\{n+(?:\+\d+)?\}", replacement_text):
-                processed_title = pattern.sub(replace_with_counter, title)
-            else:
-                processed_title = pattern.sub(replacement_text, title)
-
-            # Then generate rich text preview showing the changes
-            rich_text = ""
-            last_end = 0
-
-            for match in matches:
-                # Add text before match
-                rich_text += title[last_end : match.start()]
-
-                if replacement_text:
-                    actual_replacement = self._process_replacement_text(
-                        replacement_text, global_counter
-                    )
-                    rich_text += f'<span style="background-color: #E6FFE6; color: #28a745;">{actual_replacement}</span>'
-                else:
-                    # Show match in red if no replacement
-                    match_text = title[match.start() : match.end()]
-                    rich_text += f'<span style="background-color: #FFE6E6; color: #FF0000;">{match_text}</span>'
-
-                last_end = match.end()
-
-            # Add remaining text
-            rich_text += title[last_end:]
-
-            return processed_title, rich_text
-
-        except (re.error, Exception) as e:
-            logging.error(f"Error applying pattern: {str(e)}")
-            return title, ""
-
-    def _process_replacement_text(
-        self, replacement_text: str, global_counter: int
-    ) -> str:
-        """Process replacement text, handling {n} patterns.
-
-        Args:
-            replacement_text: The replacement pattern
-            global_counter: Current chapter counter
-
-        Returns:
-            Processed replacement text with {n} patterns replaced
-        """
-        try:
-            n_pattern = re.compile(r"\{n+(?:\+\d+)?\}")
-            actual_replacement = replacement_text
-
-            for n_match in n_pattern.finditer(replacement_text):
-                n_pattern_text = n_match.group(0)[1:-1]  # Remove { and }
-                formatted_num = self.format_number(global_counter - 1, n_pattern_text)
-                actual_replacement = actual_replacement.replace(
-                    n_match.group(0), formatted_num
-                )
-
-            return actual_replacement
-        except Exception as e:
-            logging.error(f"Error processing replacement pattern: {str(e)}")
-            return replacement_text
-
     def _process_single_title(
         self, original_title: str, patterns: list[tuple[str, str]], global_counter: int
     ) -> tuple[QListWidgetItem, int]:
@@ -1399,7 +1053,7 @@ class AudiobookConverterGUI(QMainWindow):
                     continue
 
                 # Apply pattern and get both the new title and rich text preview
-                new_title, rich_text = self._apply_single_pattern(
+                new_title, rich_text = apply_single_pattern(
                     current_title,
                     pattern_text,
                     replacement_text,
@@ -1485,24 +1139,6 @@ class AudiobookConverterGUI(QMainWindow):
 
         # Also reset main splitter if we're resetting any tab
         self.main_splitter.setSizes([800, 200])
-
-    def format_number(self, num: int, pattern: str) -> str:
-        """Format a number according to the pattern.
-
-        Args:
-            num: The number to format
-            pattern: Pattern like 'n', 'nn', 'nnn', 'n+5', 'nn+10', etc.
-
-        Returns:
-            Formatted number string with proper padding and offset
-        """
-        # Extract padding and start number from pattern
-        padding = pattern.count("n")
-        start = 0
-        if "+" in pattern:
-            start = int(pattern.split("+")[1])
-        num = num + start
-        return f"{num:0{padding}d}"
 
     def show_input_context_menu(self, position):
         input_dir = self.input_path.text()
