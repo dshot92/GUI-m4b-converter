@@ -5,10 +5,6 @@ import requests
 import tempfile
 from urllib.parse import urlparse
 
-# Add environment variables to suppress Qt warnings and improve behavior
-os.environ["QT_LOGGING_RULES"] = "*=false"
-os.environ["XDG_SESSION_TYPE"] = "x11"  # Force X11 mode for better window management
-os.environ["QT_QPA_PLATFORM"] = "xcb"  # Use XCB backend for better integration
 
 from PyQt6.QtWidgets import (
     QMainWindow,
