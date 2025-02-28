@@ -1,8 +1,8 @@
-import os
 import re
 import logging
 import requests
 import tempfile
+from pathlib import Path
 from urllib.parse import urlparse
 
 
@@ -638,9 +638,7 @@ class AudiobookConverterGUI(QMainWindow):
 
                         # Create a temporary file for the image with proper extension
                         url_path = urlparse(metadata["cover_url"]).path
-                        ext = (
-                            os.path.splitext(url_path)[1] or ".jpg"
-                        )  # Default to .jpg if no extension
+                        ext = Path(url_path).suffix or ".jpg"
 
                         with tempfile.NamedTemporaryFile(
                             delete=False, suffix=ext
@@ -684,7 +682,7 @@ class AudiobookConverterGUI(QMainWindow):
             )
             if file_name:
                 try:
-                    rel_path = os.path.relpath(file_name)
+                    rel_path = str(Path(file_name).relative_to(Path.cwd()))
                     self.cover_image_path = rel_path
                     self.update_cover_preview()
                 except ValueError:
@@ -707,7 +705,7 @@ class AudiobookConverterGUI(QMainWindow):
 
                     # Get file extension from URL or default to .jpg
                     url_path = urlparse(url).path
-                    ext = os.path.splitext(url_path)[1]
+                    ext = Path(url_path).suffix
                     if not ext:
                         # Try to determine format from content type
                         content_type = response.headers.get("content-type", "")
@@ -757,7 +755,7 @@ class AudiobookConverterGUI(QMainWindow):
         height = pixmap.height()
 
         # Get file size in MB
-        file_size_mb = os.path.getsize(self.cover_image_path) / (1024 * 1024)
+        file_size_mb = Path(self.cover_image_path).stat().st_size / (1024 * 1024)
 
         # Get image type
         image_type = QImageReader(self.cover_image_path).format().data().decode()
@@ -801,7 +799,7 @@ class AudiobookConverterGUI(QMainWindow):
         directory = QFileDialog.getExistingDirectory(self, "Select Input Directory")
         if directory:
             try:
-                rel_path = os.path.relpath(directory)
+                rel_path = str(Path(directory).relative_to(Path.cwd()))
                 self.input_path.setText(rel_path)
             except ValueError:
                 self.input_path.setText(directory)
@@ -814,7 +812,7 @@ class AudiobookConverterGUI(QMainWindow):
             if not file_name.lower().endswith(".m4b"):
                 file_name += ".m4b"
             try:
-                rel_path = os.path.relpath(file_name)
+                rel_path = str(Path(file_name).relative_to(Path.cwd()))
                 self.output_path.setText(rel_path)
             except ValueError:
                 self.output_path.setText(file_name)
@@ -837,10 +835,10 @@ class AudiobookConverterGUI(QMainWindow):
             logging.error("Please select both input directory and output file")
             return
 
-        input_dir = os.path.abspath(input_dir)
-        output_file = os.path.abspath(output_file)
+        input_dir = str(Path(input_dir).absolute())
+        output_file = str(Path(output_file).absolute())
 
-        if not os.path.isdir(input_dir):
+        if not Path(input_dir).is_dir():
             logging.error("Invalid input directory")
             return
 
@@ -851,7 +849,7 @@ class AudiobookConverterGUI(QMainWindow):
 
         metadata = self.get_metadata()
         if metadata.get("cover_path"):
-            metadata["cover_path"] = os.path.abspath(metadata["cover_path"])
+            metadata["cover_path"] = str(Path(metadata["cover_path"]).absolute())
 
         settings = self.get_conversion_settings()
 
@@ -930,8 +928,8 @@ class AudiobookConverterGUI(QMainWindow):
         if not input_dir:
             return
 
-        abs_input_dir = os.path.abspath(input_dir)
-        if not os.path.isdir(abs_input_dir):
+        abs_input_dir = str(Path(input_dir).absolute())
+        if not Path(abs_input_dir).is_dir():
             return
 
         try:
@@ -947,7 +945,7 @@ class AudiobookConverterGUI(QMainWindow):
 
             self.update_chapter_preview()
         except Exception as e:
-            logging.error(f"Error loading chapter titles: {str(e)}")
+            logging.error(f"Error updating chapter list: {str(e)}")
 
     def edit_title(self, item):
         if self.is_editing:  # Prevent multiple edits at once
@@ -1139,7 +1137,7 @@ class AudiobookConverterGUI(QMainWindow):
     def show_input_context_menu(self, position):
         input_dir = self.input_path.text()
         try:
-            if input_dir and os.path.isdir(os.path.abspath(input_dir)):
+            if input_dir and Path(input_dir).absolute().is_dir():
                 menu = QMenu()
                 open_action = menu.addAction("Open Directory")
                 action = menu.exec(self.input_path.mapToGlobal(position))
@@ -1153,12 +1151,12 @@ class AudiobookConverterGUI(QMainWindow):
         input_dir = self.input_path.text()
         if input_dir:
             try:
-                abs_path = os.path.abspath(input_dir)
-                if os.path.isdir(abs_path):
+                abs_path = Path(input_dir).absolute()
+                if abs_path.is_dir():
                     import subprocess
 
                     # Use xdg-open on Linux
-                    subprocess.Popen(["xdg-open", abs_path])
+                    subprocess.Popen(["xdg-open", str(abs_path)])
             except Exception as e:
                 logging.error(f"Error opening directory: {str(e)}")
 
@@ -1167,8 +1165,8 @@ class AudiobookConverterGUI(QMainWindow):
         try:
             if output_file:
                 # Get the parent directory of the output file
-                output_dir = os.path.dirname(os.path.abspath(output_file))
-                if os.path.isdir(output_dir):
+                output_dir = Path(output_file).absolute().parent
+                if output_dir.is_dir():
                     menu = QMenu()
                     open_action = menu.addAction("Open Directory")
                     action = menu.exec(self.output_path.mapToGlobal(position))
@@ -1183,14 +1181,14 @@ class AudiobookConverterGUI(QMainWindow):
         if output_file:
             try:
                 # Get the parent directory of the output file
-                output_dir = os.path.dirname(os.path.abspath(output_file))
-                if os.path.isdir(output_dir):
+                output_dir = Path(output_file).absolute().parent
+                if output_dir.is_dir():
                     import subprocess
 
                     # Use xdg-open on Linux
-                    subprocess.Popen(["xdg-open", output_dir])
+                    subprocess.Popen(["xdg-open", str(output_dir)])
             except Exception as e:
-                logging.error(f"Error opening output directory: {str(e)}")
+                logging.error(f"Error opening directory: {str(e)}")
 
     def show_image_popout(self, event):
         if self.cover_image_path:

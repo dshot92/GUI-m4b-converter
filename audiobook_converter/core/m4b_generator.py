@@ -1,9 +1,8 @@
-import os
 import logging
 import subprocess
 from typing import List, Dict, Optional
-
 from pathlib import Path
+
 from mutagen.mp4 import MP4, MP4Cover
 
 
@@ -59,7 +58,7 @@ def get_audio_duration(file_path: str) -> float:
             raise ValueError(f"Invalid duration: {duration_secs}")
 
         logging.info(
-            f"Duration for {os.path.basename(file_path)}: {duration_secs} seconds"
+            f"Duration for {Path(file_path).name}: {duration_secs} seconds"
         )
         return duration_secs
     except Exception as e:
@@ -107,26 +106,38 @@ def get_audio_title(file_path: str) -> str:
 
 def process_audio_files(directory: str, recursive: bool = False) -> List[str]:
     """Process audio files in the given directory."""
-    if not os.path.isdir(directory):
+    dir_path = Path(directory)
+    if not dir_path.is_dir():
         raise FileNotFoundError(f"Input directory '{directory}' not found.")
 
     audio_files = []
     seen_files = set()
 
-    for root, _, files in os.walk(directory):
-        for file in sorted(files):
-            if file.lower().endswith((".mp3", ".m4a", ".m4b", ".aac")):
-                full_path = os.path.abspath(os.path.join(root, file))
-                if full_path not in seen_files:
-                    audio_files.append(full_path)
-                    seen_files.add(full_path)
-                    logging.debug(f"Found audio file: {file}")
-        if not recursive:
-            break
+    if recursive:
+        # Walk through all subdirectories
+        for file_path in dir_path.glob('**/*'):
+            if file_path.is_file() and file_path.suffix.lower() in (".mp3", ".m4a", ".m4b", ".aac"):
+                abs_path = str(file_path.absolute())
+                if abs_path not in seen_files:
+                    audio_files.append(abs_path)
+                    seen_files.add(abs_path)
+                    logging.debug(f"Found audio file: {file_path.name}")
+    else:
+        # Only look in the top directory
+        for file_path in dir_path.glob('*'):
+            if file_path.is_file() and file_path.suffix.lower() in (".mp3", ".m4a", ".m4b", ".aac"):
+                abs_path = str(file_path.absolute())
+                if abs_path not in seen_files:
+                    audio_files.append(abs_path)
+                    seen_files.add(abs_path)
+                    logging.debug(f"Found audio file: {file_path.name}")
 
     if not audio_files:
         raise ValueError("No audio files found in the input directory.")
 
+    # Sort the files to maintain consistent order
+    audio_files.sort()
+    
     logging.info(f"Found {len(audio_files)} audio files")
     return audio_files
 
@@ -177,9 +188,9 @@ def create_concat_file(files: List[str]) -> str:
     with open(concat_file, "w", encoding="utf-8") as f:
         for file in files:
             # Escape single quotes and backslashes for FFmpeg's concat protocol
-            escaped_path = os.path.abspath(file).replace("'", "'\\''")
+            escaped_path = str(Path(file).absolute()).replace("'", "'\\''")
             f.write(f"file '{escaped_path}'\n")
-            logging.info(f"Adding file: {os.path.basename(file)}")
+            logging.info(f"Adding file: {Path(file).name}")
     return concat_file
 
 
@@ -249,7 +260,8 @@ def generate_m4b(
     temp_files = []
     try:
         # Ensure output directory exists
-        os.makedirs(os.path.dirname(os.path.abspath(output_file)), exist_ok=True)
+        output_path = Path(output_file)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
 
         # Process input files
         input_files = process_audio_files(input_dir)
@@ -308,7 +320,7 @@ def generate_m4b(
             cmd.extend(["-c:a", "aac", "-b:a", "128k"])
 
         # Add output file
-        cmd.append(output_file)
+        cmd.append(str(output_path))
 
         # Run FFmpeg
         run_ffmpeg_with_progress(cmd, stop_event)
@@ -316,7 +328,7 @@ def generate_m4b(
         # Add metadata if provided
         if metadata:
             try:
-                audio = MP4(output_file)
+                audio = MP4(str(output_path))
 
                 # Add each metadata field
                 for key, value in metadata.items():
@@ -348,7 +360,8 @@ def generate_m4b(
         # Clean up temporary files
         for temp_file in temp_files:
             try:
-                if os.path.exists(temp_file):
-                    os.remove(temp_file)
+                temp_path = Path(temp_file)
+                if temp_path.exists():
+                    temp_path.unlink()
             except OSError:
                 pass  # Ignore cleanup errors
