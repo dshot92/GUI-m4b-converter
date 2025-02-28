@@ -11,11 +11,11 @@ from audiobook_converter.gui.main_window import AudiobookConverterGUI
 
 
 def main():
-    app = QApplication(sys.argv)
-    window = AudiobookConverterGUI()
-    window.show()
-    sys.exit(app.exec())
+  app = QApplication(sys.argv)
+  window = AudiobookConverterGUI()
+  window.show()
+  sys.exit(app.exec())
 
 
 if __name__ == "__main__":
-    main()
+  main()

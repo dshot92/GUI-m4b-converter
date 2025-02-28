@@ -3,21 +3,21 @@ from PyQt6.QtCore import pyqtSignal
 
 
 class LogHandler(logging.Handler):
-    def __init__(self, signal):
-        super().__init__()
-        self.signal = signal
+  def __init__(self, signal):
+    super().__init__()
+    self.signal = signal
 
-    def emit(self, record):
-        msg = self.format(record)
-        self.signal.emit(msg)
+  def emit(self, record):
+    msg = self.format(record)
+    self.signal.emit(msg)
 
 
 def setup_logging(log_signal: pyqtSignal):
-    handler = LogHandler(log_signal)
-    handler.setFormatter(
-        logging.Formatter(
-            "%(asctime)s - %(levelname)s - %(message)s", datefmt="%H:%M:%S"
-        )
+  handler = LogHandler(log_signal)
+  handler.setFormatter(
+    logging.Formatter(
+      "%(asctime)s - %(levelname)s - %(message)s", datefmt="%H:%M:%S"
     )
-    logging.getLogger().addHandler(handler)
-    logging.getLogger().setLevel(logging.INFO)
+  )
+  logging.getLogger().addHandler(handler)
+  logging.getLogger().setLevel(logging.INFO)
