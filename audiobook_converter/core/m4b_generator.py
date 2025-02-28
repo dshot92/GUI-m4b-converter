@@ -1,64 +1,49 @@
+import os
 import logging
-import subprocess
 from typing import List, Dict, Optional
+import ffmpeg
 from pathlib import Path
-
 from mutagen.mp4 import MP4, MP4Cover
 
 
 def check_dependencies() -> bool:
     """Check if required dependencies (ffmpeg and ffprobe) are available."""
     try:
-        subprocess.run(["ffmpeg", "-version"], capture_output=True, check=True)
-        subprocess.run(["ffprobe", "-version"], capture_output=True, check=True)
+        # Use ffmpeg-python to check if ffmpeg is available
+        # This will attempt to get ffmpeg version info
+        version_info = ffmpeg.probe('', show_entries='program_version')
+        
+        # If we get here without an exception, ffmpeg and ffprobe are available
+        logging.info(f"Found ffmpeg: {version_info.get('program_version', 'unknown version')}")
         return True
-    except (subprocess.CalledProcessError, FileNotFoundError):
-        logging.error("ffmpeg or ffprobe not found. Please install ffmpeg.")
+    except ffmpeg.Error as e:
+        # ffmpeg.Error will be raised if ffmpeg/ffprobe is not found or has an error
+        stderr = e.stderr.decode('utf-8', errors='replace') if e.stderr else str(e)
+        logging.error(f"ffmpeg or ffprobe not found or not working properly: {stderr}")
         return False
 
 
 def get_audio_duration(file_path: str) -> float:
     """Get duration of audio file in seconds using ffprobe."""
     try:
+        # Get audio stream info using ffmpeg-python
+        probe = ffmpeg.probe(file_path)
+        
         # First try to get duration from audio stream
-        cmd = [
-            "ffprobe",
-            "-i",
-            file_path,
-            "-show_entries",
-            "stream=duration",
-            "-select_streams",
-            "a:0",
-            "-v",
-            "quiet",
-            "-of",
-            "csv=p=0",
-        ]
-        result = subprocess.run(cmd, capture_output=True, text=True, check=True)
-        duration = result.stdout.strip()
-
-        # If stream duration is empty or 0, try format duration
-        if not duration or float(duration) <= 0:
-            cmd = [
-                "ffprobe",
-                "-i",
-                file_path,
-                "-show_entries",
-                "format=duration",
-                "-v",
-                "quiet",
-                "-of",
-                "csv=p=0",
-            ]
-            result = subprocess.run(cmd, capture_output=True, text=True, check=True)
-            duration = result.stdout.strip()
-
-        duration_secs = float(duration)
+        audio_stream = next((stream for stream in probe['streams'] 
+                            if stream['codec_type'] == 'audio'), None)
+        
+        if audio_stream and 'duration' in audio_stream:
+            duration_secs = float(audio_stream['duration'])
+        else:
+            # If stream duration is not available, try format duration
+            duration_secs = float(probe['format']['duration'])
+        
         if duration_secs <= 0:
             raise ValueError(f"Invalid duration: {duration_secs}")
 
         logging.info(
-            f"Duration for {Path(file_path).name}: {duration_secs} seconds"
+            f"Duration for {os.path.basename(file_path)}: {duration_secs} seconds"
         )
         return duration_secs
     except Exception as e:
@@ -69,19 +54,13 @@ def get_audio_duration(file_path: str) -> float:
 def get_audio_title(file_path: str) -> str:
     """Get title from audio metadata or filename."""
     try:
-        cmd = [
-            "ffprobe",
-            "-i",
-            file_path,
-            "-show_entries",
-            "format_tags=title",
-            "-v",
-            "quiet",
-            "-of",
-            "csv=p=0",
-        ]
-        result = subprocess.run(cmd, capture_output=True, text=True, check=True)
-        title = result.stdout.strip()
+        # Get metadata using ffmpeg-python
+        probe = ffmpeg.probe(file_path)
+        
+        # Try to get title from metadata
+        title = ""
+        if 'tags' in probe['format'] and 'title' in probe['format']['tags']:
+            title = probe['format']['tags']['title']
 
         # If no metadata title, use filename
         if not title:
@@ -95,7 +74,7 @@ def get_audio_title(file_path: str) -> str:
 
         return title
 
-    except subprocess.CalledProcessError:
+    except Exception:
         logging.warning(f"Failed to get title metadata for {file_path}, using filename")
         # Clean up filename same way
         title = Path(file_path).stem
@@ -106,38 +85,26 @@ def get_audio_title(file_path: str) -> str:
 
 def process_audio_files(directory: str, recursive: bool = False) -> List[str]:
     """Process audio files in the given directory."""
-    dir_path = Path(directory)
-    if not dir_path.is_dir():
+    if not os.path.isdir(directory):
         raise FileNotFoundError(f"Input directory '{directory}' not found.")
 
     audio_files = []
     seen_files = set()
 
-    if recursive:
-        # Walk through all subdirectories
-        for file_path in dir_path.glob('**/*'):
-            if file_path.is_file() and file_path.suffix.lower() in (".mp3", ".m4a", ".m4b", ".aac"):
-                abs_path = str(file_path.absolute())
-                if abs_path not in seen_files:
-                    audio_files.append(abs_path)
-                    seen_files.add(abs_path)
-                    logging.debug(f"Found audio file: {file_path.name}")
-    else:
-        # Only look in the top directory
-        for file_path in dir_path.glob('*'):
-            if file_path.is_file() and file_path.suffix.lower() in (".mp3", ".m4a", ".m4b", ".aac"):
-                abs_path = str(file_path.absolute())
-                if abs_path not in seen_files:
-                    audio_files.append(abs_path)
-                    seen_files.add(abs_path)
-                    logging.debug(f"Found audio file: {file_path.name}")
+    for root, _, files in os.walk(directory):
+        for file in sorted(files):
+            if file.lower().endswith((".mp3", ".m4a", ".m4b", ".aac")):
+                full_path = os.path.abspath(os.path.join(root, file))
+                if full_path not in seen_files:
+                    audio_files.append(full_path)
+                    seen_files.add(full_path)
+                    logging.debug(f"Found audio file: {file}")
+        if not recursive:
+            break
 
     if not audio_files:
         raise ValueError("No audio files found in the input directory.")
 
-    # Sort the files to maintain consistent order
-    audio_files.sort()
-    
     logging.info(f"Found {len(audio_files)} audio files")
     return audio_files
 
@@ -188,59 +155,23 @@ def create_concat_file(files: List[str]) -> str:
     with open(concat_file, "w", encoding="utf-8") as f:
         for file in files:
             # Escape single quotes and backslashes for FFmpeg's concat protocol
-            escaped_path = str(Path(file).absolute()).replace("'", "'\\''")
+            escaped_path = os.path.abspath(file).replace("'", "'\\''")
             f.write(f"file '{escaped_path}'\n")
-            logging.info(f"Adding file: {Path(file).name}")
+            logging.info(f"Adding file: {os.path.basename(file)}")
     return concat_file
-
-
-def run_ffmpeg_with_progress(cmd: List[str], stop_event=None) -> None:
-    """Run ffmpeg command and show progress in real-time."""
-    process = subprocess.Popen(
-        cmd,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        universal_newlines=True,
-        bufsize=1,
-    )
-
-    while True:
-        if stop_event and stop_event():
-            process.terminate()
-            process.wait()
-            raise RuntimeError("Conversion stopped by user")
-
-        line = process.stderr.readline()
-        if not line and process.poll() is not None:
-            break
-        if line:
-            logging.info(line.strip())
-
-    stdout, stderr = process.communicate()
-    if process.returncode != 0:
-        raise RuntimeError(f"FFmpeg error: {stderr}")
 
 
 def get_audio_codec(file_path: str) -> str:
     """Get audio codec of the file using ffprobe."""
     try:
-        cmd = [
-            "ffprobe",
-            "-i",
-            file_path,
-            "-show_entries",
-            "stream=codec_name",
-            "-select_streams",
-            "a:0",
-            "-v",
-            "quiet",
-            "-of",
-            "csv=p=0",
-        ]
-        result = subprocess.run(cmd, capture_output=True, text=True, check=True)
-        codec = result.stdout.strip()
-        return codec.lower() if codec else ""
-    except subprocess.CalledProcessError:
+        probe = ffmpeg.probe(file_path)
+        audio_stream = next((stream for stream in probe['streams'] 
+                            if stream['codec_type'] == 'audio'), None)
+        
+        if audio_stream and 'codec_name' in audio_stream:
+            return audio_stream['codec_name'].lower()
+        return ""
+    except Exception:
         logging.warning(f"Failed to get codec info for {file_path}")
         return ""
 
@@ -260,8 +191,7 @@ def generate_m4b(
     temp_files = []
     try:
         # Ensure output directory exists
-        output_path = Path(output_file)
-        output_path.parent.mkdir(parents=True, exist_ok=True)
+        os.makedirs(os.path.dirname(os.path.abspath(output_file)), exist_ok=True)
 
         # Process input files
         input_files = process_audio_files(input_dir)
@@ -282,53 +212,89 @@ def generate_m4b(
         chapter_file = create_chapter_metadata(input_files, chapter_titles)
         temp_files.append(chapter_file)
 
-        # Create M4B with just audio and chapters
-        cmd = [
-            "ffmpeg",
-            "-y",
-            "-f",
-            "concat",
-            "-safe",
-            "0",
-            "-i",
-            concat_file,
-            "-i",
-            chapter_file,
-        ]
-
-        # Map streams
-        cmd.extend(["-map", "0:a"])  # Map audio from concat
-        cmd.extend(["-map_metadata", "1"])  # Map chapter metadata
-
+        # The ffmpeg-python package has limitations with complex mapping scenarios
+        # We'll use a hybrid approach: use ffmpeg-python to build the command
+        # but handle the stream mapping more carefully
+        
+        # Start building the command
+        stream = ffmpeg.input(concat_file, format='concat', safe=0)
+        
+        # Set up codec options
+        output_options = {}
+        
         # Audio codec settings
         if settings:
             codec = settings.get("codec", "AAC")
             if codec == "Auto (Copy if possible)" and can_copy:
-                cmd.extend(["-c:a", "copy"])
+                output_options['c:a'] = 'copy'
             else:
-                cmd.extend(["-c:a", "aac"])
+                output_options['c:a'] = 'aac'
                 # Bitrate
                 bitrate = settings.get("bitrate", "128k")
                 if bitrate != "Auto":
-                    cmd.extend(["-b:a", bitrate])
+                    output_options['b:a'] = bitrate
                 # Sample rate
                 sample_rate = settings.get("sample_rate")
                 if sample_rate and sample_rate != "Auto":
-                    cmd.extend(["-ar", sample_rate])
+                    output_options['ar'] = sample_rate
         else:
             # Default audio settings
-            cmd.extend(["-c:a", "aac", "-b:a", "128k"])
-
-        # Add output file
-        cmd.append(str(output_path))
-
+            output_options['c:a'] = 'aac'
+            output_options['b:a'] = '128k'
+        
+        # Create the ffmpeg command with explicit stream handling
+        # We'll use the global_args method to add the mapping options
+        ffmpeg_cmd = (
+            ffmpeg
+            .input(concat_file, format='concat', safe=0)
+            .output(output_file, **output_options)
+            .global_args(
+                '-i', chapter_file,  # Add chapter file as second input
+                '-map', '0:a',       # Map audio from first input
+                '-map_metadata', '1',  # Map metadata from second input
+                '-progress', 'pipe:1'  # For progress monitoring
+            )
+            .overwrite_output()
+        )
+        
+        # Get the command that would be executed for logging
+        cmd_args = ffmpeg_cmd.compile()
+        logging.info(f"Executing FFmpeg command: {' '.join(cmd_args)}")
+        
         # Run FFmpeg
-        run_ffmpeg_with_progress(cmd, stop_event)
+        try:
+            # Run the ffmpeg process
+            process = ffmpeg_cmd.run_async(pipe_stdout=True, pipe_stderr=True)
+            
+            # Monitor progress
+            while True:
+                if stop_event and stop_event():
+                    process.terminate()
+                    process.wait()
+                    raise RuntimeError("Conversion stopped by user")
+                    
+                # Read output line by line
+                line = process.stderr.readline().decode('utf-8', errors='replace')
+                if not line and process.poll() is not None:
+                    break
+                if line:
+                    logging.info(line.strip())
+                    
+            # Wait for process to complete
+            process.wait()
+            
+            if process.returncode != 0:
+                stderr = process.stderr.read().decode('utf-8', errors='replace')
+                raise RuntimeError(f"FFmpeg error: {stderr}")
+                
+        except ffmpeg.Error as e:
+            stderr = e.stderr.decode('utf-8', errors='replace') if e.stderr else str(e)
+            raise RuntimeError(f"FFmpeg error: {stderr}")
 
         # Add metadata if provided
         if metadata:
             try:
-                audio = MP4(str(output_path))
+                audio = MP4(output_file)
 
                 # Add each metadata field
                 for key, value in metadata.items():
@@ -360,8 +326,7 @@ def generate_m4b(
         # Clean up temporary files
         for temp_file in temp_files:
             try:
-                temp_path = Path(temp_file)
-                if temp_path.exists():
-                    temp_path.unlink()
+                if os.path.exists(temp_file):
+                    os.remove(temp_file)
             except OSError:
                 pass  # Ignore cleanup errors
