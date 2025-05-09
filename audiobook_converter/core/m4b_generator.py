@@ -277,30 +277,14 @@ def generate_m4b(
 
         # Run FFmpeg
         try:
-            # Run the ffmpeg process
+            # Run the ffmpeg process and wait for it to finish
             process = ffmpeg_cmd.run_async(pipe_stdout=True, pipe_stderr=True)
-
-            # Monitor progress
-            while True:
-                if stop_event and stop_event():
-                    process.terminate()
-                    process.wait()
-                    raise RuntimeError("Conversion stopped by user")
-
-                # Read output line by line
-                line = process.stderr.readline().decode("utf-8", errors="replace")
-                if not line and process.poll() is not None:
-                    break
-                if line:
-                    logging.info(line.strip())
-
-            # Wait for process to complete
-            process.wait()
-
+            stdout, stderr = process.communicate()
             if process.returncode != 0:
-                stderr = process.stderr.read().decode("utf-8", errors="replace")
-                raise RuntimeError(f"FFmpeg error: {stderr}")
-
+                raise RuntimeError(
+                    f"FFmpeg error: {stderr.decode('utf-8', errors='replace')}"
+                )
+            logging.info(stderr.decode("utf-8", errors="replace"))
         except ffmpeg.Error as e:
             stderr = e.stderr.decode("utf-8", errors="replace") if e.stderr else str(e)
             raise RuntimeError(f"FFmpeg error: {stderr}")
