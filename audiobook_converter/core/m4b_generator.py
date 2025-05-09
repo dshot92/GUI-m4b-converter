@@ -194,6 +194,7 @@ def generate_m4b(
     settings: Optional[Dict] = None,
     chapter_titles: Optional[List[str]] = None,
     stop_event=None,
+    progress_callback=None,  # New parameter for progress updates
 ) -> None:
     """Generate M4B file from input files."""
     if not check_dependencies():
@@ -206,6 +207,9 @@ def generate_m4b(
 
         # Process input files
         input_files = process_audio_files(input_dir)
+
+        # Calculate total duration for progress
+        total_duration = sum(get_audio_duration(f) for f in input_files)
 
         # Check if all files are AAC for copy mode
         can_copy = False
@@ -275,16 +279,50 @@ def generate_m4b(
         cmd_args = ffmpeg_cmd.compile()
         logging.info(f"Executing FFmpeg command: {' '.join(cmd_args)}")
 
-        # Run FFmpeg
+        # Run FFmpeg and parse progress
         try:
-            # Run the ffmpeg process and wait for it to finish
             process = ffmpeg_cmd.run_async(pipe_stdout=True, pipe_stderr=True)
-            stdout, stderr = process.communicate()
+            progress_time = 0.0
+            last_percent = -1
+            while True:
+                line = process.stdout.readline()
+                if not line:
+                    if process.poll() is not None:
+                        break
+                    continue
+                line = line.decode("utf-8", errors="replace").strip()
+                if line.startswith("out_time_ms="):
+                    ms = int(line.split("=", 1)[1])
+                    progress_time = ms / 1_000_000.0
+                elif line.startswith("out_time="):
+                    t = line.split("=", 1)[1]
+                    if ":" in t:
+                        parts = [float(x) for x in t.split(":")]
+                        if len(parts) == 3:
+                            h, m, s = parts
+                        elif len(parts) == 2:
+                            h, m = parts
+                            s = 0
+                        else:
+                            h, m, s = 0, 0, parts[0]
+                        progress_time = h * 3600 + m * 60 + s
+                    else:
+                        progress_time = float(t)
+                elif line == "progress=end":
+                    if progress_callback:
+                        progress_callback(100.0)
+                # Update progress only if it increases
+                if total_duration > 0 and progress_callback and progress_time > 0:
+                    percent = min(100.0, (progress_time / total_duration) * 100)
+                    if percent > last_percent:
+                        progress_callback(percent)
+                        last_percent = percent
+            process.wait()
             if process.returncode != 0:
+                err = process.stderr.read()
                 raise RuntimeError(
-                    f"FFmpeg error: {stderr.decode('utf-8', errors='replace')}"
+                    f"FFmpeg error: {err.decode('utf-8', errors='replace')}"
                 )
-            logging.info(stderr.decode("utf-8", errors="replace"))
         except ffmpeg.Error as e:
             stderr = e.stderr.decode("utf-8", errors="replace") if e.stderr else str(e)
             raise RuntimeError(f"FFmpeg error: {stderr}")
