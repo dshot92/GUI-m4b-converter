@@ -285,6 +285,10 @@ def generate_m4b(
             progress_time = 0.0
             last_percent = -1
             while True:
+                if stop_event and stop_event():
+                    process.terminate()
+                    logging.info("Conversion stopped by user request.")
+                    raise RuntimeError("Conversion stopped by user.")
                 line = process.stdout.readline()
                 if not line:
                     if process.poll() is not None:
