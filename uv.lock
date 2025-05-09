@@ -1,0 +1,159 @@
+version = 1
+revision = 2
+requires-python = ">=3.13"
+
+[[package]]
+name = "certifi"
+version = "2025.4.26"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/e8/9e/c05b3920a3b7d20d3d3310465f50348e5b3694f4f88c6daf736eef3024c4/certifi-2025.4.26.tar.gz", hash = "sha256:0a816057ea3cdefcef70270d2c515e4506bbc954f417fa5ade2021213bb8f0c6", size = 160705, upload-time = "2025-04-26T02:12:29.51Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/4a/7e/3db2bd1b1f9e95f7cddca6d6e75e2f2bd9f51b1246e546d88addca0106bd/certifi-2025.4.26-py3-none-any.whl", hash = "sha256:30350364dfe371162649852c63336a15c70c6510c2ad5015b21c2345311805f3", size = 159618, upload-time = "2025-04-26T02:12:27.662Z" },
+]
+
+[[package]]
+name = "charset-normalizer"
+version = "3.4.2"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/e4/33/89c2ced2b67d1c2a61c19c6751aa8902d46ce3dacb23600a283619f5a12d/charset_normalizer-3.4.2.tar.gz", hash = "sha256:5baececa9ecba31eff645232d59845c07aa030f0c81ee70184a90d35099a0e63", size = 126367, upload-time = "2025-05-02T08:34:42.01Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ea/12/a93df3366ed32db1d907d7593a94f1fe6293903e3e92967bebd6950ed12c/charset_normalizer-3.4.2-cp313-cp313-macosx_10_13_universal2.whl", hash = "sha256:926ca93accd5d36ccdabd803392ddc3e03e6d4cd1cf17deff3b989ab8e9dbcf0", size = 199622, upload-time = "2025-05-02T08:32:56.363Z" },
+    { url = "https://files.pythonhosted.org/packages/04/93/bf204e6f344c39d9937d3c13c8cd5bbfc266472e51fc8c07cb7f64fcd2de/charset_normalizer-3.4.2-cp313-cp313-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:eba9904b0f38a143592d9fc0e19e2df0fa2e41c3c3745554761c5f6447eedabf", size = 143435, upload-time = "2025-05-02T08:32:58.551Z" },
+    { url = "https://files.pythonhosted.org/packages/22/2a/ea8a2095b0bafa6c5b5a55ffdc2f924455233ee7b91c69b7edfcc9e02284/charset_normalizer-3.4.2-cp313-cp313-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:3fddb7e2c84ac87ac3a947cb4e66d143ca5863ef48e4a5ecb83bd48619e4634e", size = 153653, upload-time = "2025-05-02T08:33:00.342Z" },
+    { url = "https://files.pythonhosted.org/packages/b6/57/1b090ff183d13cef485dfbe272e2fe57622a76694061353c59da52c9a659/charset_normalizer-3.4.2-cp313-cp313-manylinux_2_17_s390x.manylinux2014_s390x.whl", hash = "sha256:98f862da73774290f251b9df8d11161b6cf25b599a66baf087c1ffe340e9bfd1", size = 146231, upload-time = "2025-05-02T08:33:02.081Z" },
+    { url = "https://files.pythonhosted.org/packages/e2/28/ffc026b26f441fc67bd21ab7f03b313ab3fe46714a14b516f931abe1a2d8/charset_normalizer-3.4.2-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:6c9379d65defcab82d07b2a9dfbfc2e95bc8fe0ebb1b176a3190230a3ef0e07c", size = 148243, upload-time = "2025-05-02T08:33:04.063Z" },
+    { url = "https://files.pythonhosted.org/packages/c0/0f/9abe9bd191629c33e69e47c6ef45ef99773320e9ad8e9cb08b8ab4a8d4cb/charset_normalizer-3.4.2-cp313-cp313-manylinux_2_5_i686.manylinux1_i686.manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:e635b87f01ebc977342e2697d05b56632f5f879a4f15955dfe8cef2448b51691", size = 150442, upload-time = "2025-05-02T08:33:06.418Z" },
+    { url = "https://files.pythonhosted.org/packages/67/7c/a123bbcedca91d5916c056407f89a7f5e8fdfce12ba825d7d6b9954a1a3c/charset_normalizer-3.4.2-cp313-cp313-musllinux_1_2_aarch64.whl", hash = "sha256:1c95a1e2902a8b722868587c0e1184ad5c55631de5afc0eb96bc4b0d738092c0", size = 145147, upload-time = "2025-05-02T08:33:08.183Z" },
+    { url = "https://files.pythonhosted.org/packages/ec/fe/1ac556fa4899d967b83e9893788e86b6af4d83e4726511eaaad035e36595/charset_normalizer-3.4.2-cp313-cp313-musllinux_1_2_i686.whl", hash = "sha256:ef8de666d6179b009dce7bcb2ad4c4a779f113f12caf8dc77f0162c29d20490b", size = 153057, upload-time = "2025-05-02T08:33:09.986Z" },
+    { url = "https://files.pythonhosted.org/packages/2b/ff/acfc0b0a70b19e3e54febdd5301a98b72fa07635e56f24f60502e954c461/charset_normalizer-3.4.2-cp313-cp313-musllinux_1_2_ppc64le.whl", hash = "sha256:32fc0341d72e0f73f80acb0a2c94216bd704f4f0bce10aedea38f30502b271ff", size = 156454, upload-time = "2025-05-02T08:33:11.814Z" },
+    { url = "https://files.pythonhosted.org/packages/92/08/95b458ce9c740d0645feb0e96cea1f5ec946ea9c580a94adfe0b617f3573/charset_normalizer-3.4.2-cp313-cp313-musllinux_1_2_s390x.whl", hash = "sha256:289200a18fa698949d2b39c671c2cc7a24d44096784e76614899a7ccf2574b7b", size = 154174, upload-time = "2025-05-02T08:33:13.707Z" },
+    { url = "https://files.pythonhosted.org/packages/78/be/8392efc43487ac051eee6c36d5fbd63032d78f7728cb37aebcc98191f1ff/charset_normalizer-3.4.2-cp313-cp313-musllinux_1_2_x86_64.whl", hash = "sha256:4a476b06fbcf359ad25d34a057b7219281286ae2477cc5ff5e3f70a246971148", size = 149166, upload-time = "2025-05-02T08:33:15.458Z" },
+    { url = "https://files.pythonhosted.org/packages/44/96/392abd49b094d30b91d9fbda6a69519e95802250b777841cf3bda8fe136c/charset_normalizer-3.4.2-cp313-cp313-win32.whl", hash = "sha256:aaeeb6a479c7667fbe1099af9617c83aaca22182d6cf8c53966491a0f1b7ffb7", size = 98064, upload-time = "2025-05-02T08:33:17.06Z" },
+    { url = "https://files.pythonhosted.org/packages/e9/b0/0200da600134e001d91851ddc797809e2fe0ea72de90e09bec5a2fbdaccb/charset_normalizer-3.4.2-cp313-cp313-win_amd64.whl", hash = "sha256:aa6af9e7d59f9c12b33ae4e9450619cf2488e2bbe9b44030905877f0b2324980", size = 105641, upload-time = "2025-05-02T08:33:18.753Z" },
+    { url = "https://files.pythonhosted.org/packages/20/94/c5790835a017658cbfabd07f3bfb549140c3ac458cfc196323996b10095a/charset_normalizer-3.4.2-py3-none-any.whl", hash = "sha256:7f56930ab0abd1c45cd15be65cc741c28b1c9a34876ce8c17a2fa107810c0af0", size = 52626, upload-time = "2025-05-02T08:34:40.053Z" },
+]
+
+[[package]]
+name = "ffmpeg-python"
+version = "0.2.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "future" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/dd/5e/d5f9105d59c1325759d838af4e973695081fbbc97182baf73afc78dec266/ffmpeg-python-0.2.0.tar.gz", hash = "sha256:65225db34627c578ef0e11c8b1eb528bb35e024752f6f10b78c011f6f64c4127", size = 21543, upload-time = "2019-07-06T00:19:08.989Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/d7/0c/56be52741f75bad4dc6555991fabd2e07b432d333da82c11ad701123888a/ffmpeg_python-0.2.0-py3-none-any.whl", hash = "sha256:ac441a0404e053f8b6a1113a77c0f452f1cfc62f6344a769475ffdc0f56c23c5", size = 25024, upload-time = "2019-07-06T00:19:07.215Z" },
+]
+
+[[package]]
+name = "future"
+version = "1.0.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/a7/b2/4140c69c6a66432916b26158687e821ba631a4c9273c474343badf84d3ba/future-1.0.0.tar.gz", hash = "sha256:bd2968309307861edae1458a4f8a4f3598c03be43b97521076aebf5d94c07b05", size = 1228490, upload-time = "2024-02-21T11:52:38.461Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/da/71/ae30dadffc90b9006d77af76b393cb9dfbfc9629f339fc1574a1c52e6806/future-1.0.0-py3-none-any.whl", hash = "sha256:929292d34f5872e70396626ef385ec22355a1fae8ad29e1a734c3e43f9fbc216", size = 491326, upload-time = "2024-02-21T11:52:35.956Z" },
+]
+
+[[package]]
+name = "gui-m4b-converter"
+version = "0.0.1"
+source = { virtual = "." }
+dependencies = [
+    { name = "ffmpeg-python" },
+    { name = "mutagen" },
+    { name = "pyqt6" },
+    { name = "requests" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "ffmpeg-python", specifier = ">=0.2.0" },
+    { name = "mutagen", specifier = ">=1.46.0" },
+    { name = "pyqt6", specifier = ">=6.4.0" },
+    { name = "requests", specifier = ">=2.31.0" },
+]
+
+[[package]]
+name = "idna"
+version = "3.10"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/f1/70/7703c29685631f5a7590aa73f1f1d3fa9a380e654b86af429e0934a32f7d/idna-3.10.tar.gz", hash = "sha256:12f65c9b470abda6dc35cf8e63cc574b1c52b11df2c86030af0ac09b01b13ea9", size = 190490, upload-time = "2024-09-15T18:07:39.745Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/76/c6/c88e154df9c4e1a2a66ccf0005a88dfb2650c1dffb6f5ce603dfbd452ce3/idna-3.10-py3-none-any.whl", hash = "sha256:946d195a0d259cbba61165e88e65941f16e9b36ea6ddb97f00452bae8b1287d3", size = 70442, upload-time = "2024-09-15T18:07:37.964Z" },
+]
+
+[[package]]
+name = "mutagen"
+version = "1.47.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/81/e6/64bc71b74eef4b68e61eb921dcf72dabd9e4ec4af1e11891bbd312ccbb77/mutagen-1.47.0.tar.gz", hash = "sha256:719fadef0a978c31b4cf3c956261b3c58b6948b32023078a2117b1de09f0fc99", size = 1274186, upload-time = "2023-09-03T16:33:33.411Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/b0/7a/620f945b96be1f6ee357d211d5bf74ab1b7fe72a9f1525aafbfe3aee6875/mutagen-1.47.0-py3-none-any.whl", hash = "sha256:edd96f50c5907a9539d8e5bba7245f62c9f520aef333d13392a79a4f70aca719", size = 194391, upload-time = "2023-09-03T16:33:29.955Z" },
+]
+
+[[package]]
+name = "pyqt6"
+version = "6.9.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pyqt6-qt6" },
+    { name = "pyqt6-sip" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/32/de/102e8e66149085acf38bbf01df572a2cd53259bcd99b7d8ecef0d6b36172/pyqt6-6.9.0.tar.gz", hash = "sha256:6a8ff8e3cd18311bb7d937f7d741e787040ae7ff47ce751c28a94c5cddc1b4e6", size = 1066831, upload-time = "2025-04-08T09:00:46.745Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/97/e5/f9e2b5326d6103bce4894a969be54ce3be4b0a7a6ff848228e6a61a9993f/PyQt6-6.9.0-cp39-abi3-macosx_10_14_universal2.whl", hash = "sha256:5344240747e81bde1a4e0e98d4e6e2d96ad56a985d8f36b69cd529c1ca9ff760", size = 12257215, upload-time = "2025-04-08T09:00:37.177Z" },
+    { url = "https://files.pythonhosted.org/packages/ed/3a/bcc7687c5a11079bbd1606a015514562f2ac8cb01c5e3e4a3b30fcbdad36/PyQt6-6.9.0-cp39-abi3-manylinux_2_28_x86_64.whl", hash = "sha256:e344868228c71fc89a0edeb325497df4ff731a89cfa5fe57a9a4e9baecc9512b", size = 8259731, upload-time = "2025-04-08T09:00:40.082Z" },
+    { url = "https://files.pythonhosted.org/packages/e1/47/13ab0b916b5bad07ab04767b412043f5c1ca206bf38a906b1d8d5c520a98/PyQt6-6.9.0-cp39-abi3-manylinux_2_39_aarch64.whl", hash = "sha256:1cbc5a282454cf19691be09eadbde019783f1ae0523e269b211b0173b67373f6", size = 8207593, upload-time = "2025-04-08T09:00:42.167Z" },
+    { url = "https://files.pythonhosted.org/packages/d1/a8/955cfd880f2725a218ee7b272c005658e857e9224823d49c32c93517f6d9/PyQt6-6.9.0-cp39-abi3-win_amd64.whl", hash = "sha256:d36482000f0cd7ce84a35863766f88a5e671233d5f1024656b600cd8915b3752", size = 6748279, upload-time = "2025-04-08T09:00:43.762Z" },
+    { url = "https://files.pythonhosted.org/packages/9f/38/586ce139b1673a27607f7b85c594878e1bba215abdca3de67732b463f7b2/PyQt6-6.9.0-cp39-abi3-win_arm64.whl", hash = "sha256:0c8b7251608e05b479cfe731f95857e853067459f7cbbcfe90f89de1bcf04280", size = 5478122, upload-time = "2025-04-08T09:00:45.296Z" },
+]
+
+[[package]]
+name = "pyqt6-qt6"
+version = "6.9.0"
+source = { registry = "https://pypi.org/simple" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/e2/11/8c450442bf4702ed810689a045f9c5d9236d709163886f09374fd8d84143/PyQt6_Qt6-6.9.0-py3-none-macosx_10_14_x86_64.whl", hash = "sha256:b1c4e4a78f0f22fbf88556e3d07c99e5ce93032feae5c1e575958d914612e0f9", size = 66804297, upload-time = "2025-04-08T08:51:42.258Z" },
+    { url = "https://files.pythonhosted.org/packages/6e/be/191ba4402c24646f6b98c326ff0ee22e820096c69e67ba5860a687057616/PyQt6_Qt6-6.9.0-py3-none-macosx_11_0_arm64.whl", hash = "sha256:6d3875119dec6bf5f799facea362aa0ad39bb23aa9654112faa92477abccb5ff", size = 60943708, upload-time = "2025-04-08T08:51:48.156Z" },
+    { url = "https://files.pythonhosted.org/packages/0f/70/ec018b6e979b3914c984e5ab7e130918930d5423735ac96c70c328227b9b/PyQt6_Qt6-6.9.0-py3-none-manylinux_2_28_x86_64.whl", hash = "sha256:9c0e603c934e4f130c110190fbf2c482ff1221a58317266570678bc02db6b152", size = 81846956, upload-time = "2025-04-08T08:51:54.582Z" },
+    { url = "https://files.pythonhosted.org/packages/ac/ed/2d78cd08be415a21dac2e7277967b90b0c05afc4782100f0a037447bb1c6/PyQt6_Qt6-6.9.0-py3-none-manylinux_2_39_aarch64.whl", hash = "sha256:cf840e8ae20a0704e0343810cf0e485552db28bf09ea976e58ec0e9b7bb27fcd", size = 80295982, upload-time = "2025-04-08T08:52:00.741Z" },
+    { url = "https://files.pythonhosted.org/packages/6e/24/6b6168a75c7b6a55b9f6b5c897e6164ec15e94594af11a6f358c49845442/PyQt6_Qt6-6.9.0-py3-none-win_amd64.whl", hash = "sha256:c825a6f5a9875ef04ef6681eda16aa3a9e9ad71847aa78dfafcf388c8007aa0a", size = 73652485, upload-time = "2025-04-08T08:52:07.306Z" },
+    { url = "https://files.pythonhosted.org/packages/44/fd/1238931df039e46e128d53974c0cfc9d34da3d54c5662bd589fe7b0a67c2/PyQt6_Qt6-6.9.0-py3-none-win_arm64.whl", hash = "sha256:1188f118d1c570d27fba39707e3d8a48525f979816e73de0da55b9e6fa9ad0a1", size = 49568913, upload-time = "2025-04-08T08:52:12.587Z" },
+]
+
+[[package]]
+name = "pyqt6-sip"
+version = "13.10.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/90/18/0405c54acba0c8e276dd6f0601890e6e735198218d031a6646104870fe22/pyqt6_sip-13.10.0.tar.gz", hash = "sha256:d6daa95a0bd315d9ec523b549e0ce97455f61ded65d5eafecd83ed2aa4ae5350", size = 92464, upload-time = "2025-02-02T17:14:05.839Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/6b/0c/8d1de48b45b565a46bf4757341f13f9b1853a7d2e6b023700f0af2c213ab/PyQt6_sip-13.10.0-cp313-cp313-macosx_10_13_universal2.whl", hash = "sha256:7b6e250c2e7c14702a623f2cc1479d7fb8db2b6eee9697cac10d06fe79c281bb", size = 112343, upload-time = "2025-02-02T17:13:49.605Z" },
+    { url = "https://files.pythonhosted.org/packages/af/13/e2cc2b667a9f5d44c2d0e18fa6e1066fca3f4521dcb301f4b5374caeb33e/PyQt6_sip-13.10.0-cp313-cp313-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:0fcb30756568f8cd59290f9ef2ae5ee3e72ff9cdd61a6f80c9e3d3b95ae676be", size = 322527, upload-time = "2025-02-02T17:13:50.779Z" },
+    { url = "https://files.pythonhosted.org/packages/20/1a/5c6fcae85edb65cf236c9dc6d23b279b5316e94cdca1abdee6d0a217ddbb/PyQt6_sip-13.10.0-cp313-cp313-manylinux_2_5_x86_64.manylinux1_x86_64.whl", hash = "sha256:757ac52c92b2ef0b56ecc7cd763b55a62d3c14271d7ea8d03315af85a70090ff", size = 303407, upload-time = "2025-02-02T17:13:52.733Z" },
+    { url = "https://files.pythonhosted.org/packages/b9/db/6924ec985be7d746772806b96ab81d24263ef72f0249f0573a82adaed75e/PyQt6_sip-13.10.0-cp313-cp313-win_amd64.whl", hash = "sha256:571900c44a3e38738d696234d94fe2043972b9de0633505451c99e2922cb6a34", size = 53580, upload-time = "2025-02-02T17:13:54.98Z" },
+    { url = "https://files.pythonhosted.org/packages/77/c3/9e44729b582ee7f1d45160e8c292723156889f3e38ce6574f88d5ab8fa02/PyQt6_sip-13.10.0-cp313-cp313-win_arm64.whl", hash = "sha256:39cba2cc71cf80a99b4dc8147b43508d4716e128f9fb99f5eb5860a37f082282", size = 45446, upload-time = "2025-02-02T17:13:57.135Z" },
+]
+
+[[package]]
+name = "requests"
+version = "2.32.3"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "certifi" },
+    { name = "charset-normalizer" },
+    { name = "idna" },
+    { name = "urllib3" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/63/70/2bf7780ad2d390a8d301ad0b550f1581eadbd9a20f896afe06353c2a2913/requests-2.32.3.tar.gz", hash = "sha256:55365417734eb18255590a9ff9eb97e9e1da868d4ccd6402399eaf68af20a760", size = 131218, upload-time = "2024-05-29T15:37:49.536Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/f9/9b/335f9764261e915ed497fcdeb11df5dfd6f7bf257d4a6a2a686d80da4d54/requests-2.32.3-py3-none-any.whl", hash = "sha256:70761cfe03c773ceb22aa2f671b4757976145175cdfca038c02654d061d6dcc6", size = 64928, upload-time = "2024-05-29T15:37:47.027Z" },
+]
+
+[[package]]
+name = "urllib3"
+version = "2.4.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/8a/78/16493d9c386d8e60e442a35feac5e00f0913c0f4b7c217c11e8ec2ff53e0/urllib3-2.4.0.tar.gz", hash = "sha256:414bc6535b787febd7567804cc015fee39daab8ad86268f1310a9250697de466", size = 390672, upload-time = "2025-04-10T15:23:39.232Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/6b/11/cc635220681e93a0183390e26485430ca2c7b5f9d33b15c74c2861cb8091/urllib3-2.4.0-py3-none-any.whl", hash = "sha256:4e16665048960a0900c702d4a66415956a584919c03361cac9f1df5c5dd7e813", size = 128680, upload-time = "2025-04-10T15:23:37.377Z" },
+]

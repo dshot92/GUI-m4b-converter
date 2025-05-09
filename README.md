@@ -29,20 +29,14 @@ cd audiobook-converter
 
 Run from the project directory:
 ```bash
-python -m audiobook_converter
+uv run audiobook_converter
 ```
 
 ## Development Setup
 
 1. Create a virtual environment (recommended):
 ```bash
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-```
-
-2. Install dependencies:
-```bash
-pip install PyQt6
+uv pip install .
 ```
 
 ## License
